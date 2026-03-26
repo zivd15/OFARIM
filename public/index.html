@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עופרים — נשים בטבע</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Heebo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Nature background decorations */
+  body::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(139,119,80,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 90% 80%, rgba(139,119,80,0.06) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(168,143,100,0.04) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .container {
+    text-align: center;
+    padding: 40px 24px;
+    position: relative;
+    z-index: 1;
+    max-width: 600px;
+    width: 100%;
+  }
+
+  .logo-wrapper {
+    margin-bottom: 24px;
+    animation: fadeInDown 1s ease-out;
+  }
+
+  .logo-wrapper img {
+    width: 280px;
+    max-width: 80vw;
+    height: auto;
+    border-radius: 20px;
+    filter: drop-shadow(0 8px 24px rgba(120,100,60,0.15));
+  }
+
+  .welcome-text {
+    font-size: 26px;
+    font-weight: 700;
+    color: #5a4a32;
+    margin-bottom: 8px;
+    animation: fadeIn 1.2s ease-out 0.3s both;
+  }
+
+  .subtitle {
+    font-size: 16px;
+    color: #8b7a5e;
+    margin-bottom: 48px;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    animation: fadeIn 1.2s ease-out 0.5s both;
+  }
+
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    animation: fadeInUp 1s ease-out 0.7s both;
+  }
+
+  .link-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 380px;
+    padding: 20px 28px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(168,143,100,0.2);
+    border-radius: 16px;
+    text-decoration: none;
+    color: #5a4a32;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .link-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(120,100,60,0.15);
+    border-color: rgba(168,143,100,0.4);
+    background: rgba(255,255,255,0.95);
+  }
+
+  .link-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+
+  .link-content {
+    text-align: right;
+  }
+
+  .link-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+
+  .link-desc {
+    font-size: 13px;
+    color: #a0906e;
+    font-weight: 300;
+  }
+
+  .link-arrow {
+    margin-right: auto;
+    margin-left: 0;
+    font-size: 20px;
+    color: #c0b090;
+    transition: transform 0.3s;
+  }
+
+  .link-card:hover .link-arrow {
+    transform: translateX(-4px);
+  }
+
+  /* Decorative leaves */
+  .leaf {
+    position: absolute;
+    opacity: 0.08;
+    pointer-events: none;
+    font-size: 80px;
+  }
+  .leaf-1 { top: 5%; left: 5%; transform: rotate(-30deg); }
+  .leaf-2 { top: 15%; right: 8%; transform: rotate(45deg); }
+  .leaf-3 { bottom: 10%; left: 10%; transform: rotate(20deg); }
+  .leaf-4 { bottom: 20%; right: 5%; transform: rotate(-60deg); }
+
+  footer {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    text-align: center;
+    padding: 16px;
+    font-size: 12px;
+    color: #b0a080;
+  }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 480px) {
+    .welcome-text { font-size: 22px; }
+    .logo-wrapper img { width: 220px; }
+    .link-card { padding: 16px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="leaf leaf-1">🌿</div>
+<div class="leaf leaf-2">🍃</div>
+<div class="leaf leaf-3">🌿</div>
+<div class="leaf leaf-4">🍃</div>
+
+<div class="container">
+  <div class="logo-wrapper">
+    <img src="/images/logo.jpeg" alt="עופרים — נשים בטבע" />
+  </div>
+
+  <div class="welcome-text">ברוכות הבאות למקום בטוח</div>
+  <div class="subtitle">צמיחה, טיפוח, אכפתיות</div>
+
+  <div class="links">
+    <a href="/calendar" class="link-card">
+      <span class="link-icon">📅</span>
+      <div class="link-content">
+        <div class="link-title">לוח אירועים</div>
+        <div class="link-desc">צפייה באירועים והרשמה</div>
+      </div>
+      <span class="link-arrow">←</span>
+    </a>
+
+    <a href="/admin" class="link-card">
+      <span class="link-icon">⚙️</span>
+      <div class="link-content">
+        <div class="link-title">ניהול</div>
+        <div class="link-desc">כניסה למנהלות</div>
+      </div>
+      <span class="link-arrow">←</span>
+    </a>
+  </div>
+</div>
+
+<footer>עופרים &copy; 2025 — נשים בטבע</footer>
+
+</body>
+</html>

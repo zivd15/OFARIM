@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ofarim — Events Calendar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: { extend: {
+    fontFamily: { sans: ['Open Sans', 'sans-serif'] },
+    colors: { primary: '#3498db', secondary: '#f1c40f', bgLight: '#f9f9f9', textDark: '#333' }
+  }}
+}
+</script>
+<style>
+  .fade-in { animation: fadeIn 0.2s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .spinner { border: 3px solid #e5e7eb; border-top: 3px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-bgLight font-sans text-textDark">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+async function apiFetch(url, options = {}) {
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const res = await fetch('/api' + url, { ...options, headers });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// ─── Month Navigator ─────────────────────────────────────
+function MonthNavigator({ month, year, onPrev, onNext }) {
+  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return (
+    <div className="flex justify-between items-center mb-4">
+      <button onClick={onPrev} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">◀</button>
+      <h2 className="text-xl font-bold">{names[month]} {year}</h2>
+      <button onClick={onNext} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">▶</button>
+    </div>
+  );
+}
+
+// ─── Event Pill (on calendar day) ────────────────────────
+function EventPill({ event, onClick }) {
+  const spotsText = event.spots_left !== null ? `${event.participant_count}/${event.max_participants}` : `${event.participant_count} signed`;
+  return (
+    <div onClick={(e) => { e.stopPropagation(); onClick(event); }}
+      className="text-xs px-1.5 py-1 rounded cursor-pointer hover:opacity-80 transition mb-0.5"
+      style={{ backgroundColor: event.color || '#3498db', color: '#fff' }}>
+      <div className="font-semibold truncate">{event.time && `${event.time} `}{event.title}</div>
+      <div className="opacity-80">{spotsText}</div>
+    </div>
+  );
+}
+
+// ─── Day Grid ────────────────────────────────────────────
+function DayGrid({ month, year, events, onEventClick }) {
+  const daysOfWeek = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const firstDay = new Date(year, month, 1);
+  let startDay = firstDay.getDay() - 1;
+  if (startDay < 0) startDay = 6;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+
+  const cells = [];
+  for (let i = 0; i < startDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const getEventsForDay = (day) => {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return events.filter(e => e.date === dateStr);
+  };
+
+  const isToday = (day) => today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-1 mb-1">
+        {daysOfWeek.map(d => (
+          <div key={d} className="text-center text-xs font-semibold text-gray-500 py-2">{d}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((day, i) => {
+          const dayEvents = day ? getEventsForDay(day) : [];
+          return (
+            <div key={i}
+              className={`min-h-[90px] p-1 rounded-lg border transition
+                ${day ? 'hover:border-primary/50' : 'border-transparent'}
+                ${isToday(day) ? 'border-primary bg-blue-50 ring-2 ring-primary/20' : 'border-gray-200 bg-white'}`}>
+              {day && (
+                <>
+                  <div className={`text-sm font-semibold mb-1 ${isToday(day) ? 'text-primary' : 'text-gray-700'}`}>{day}</div>
+                  {dayEvents.map(ev => (
+                    <EventPill key={ev.id} event={ev} onClick={onEventClick} />
+                  ))}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Event Detail + Sign Up Modal ────────────────────────
+function EventModal({ event, onClose, onRegistered }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const isFull = event.spots_left !== null && event.spots_left <= 0;
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (!name.trim()) return setError('Name is required');
+    setLoading(true);
+    try {
+      const data = await apiFetch(`/events/${event.id}/register`, {
+        method: 'POST',
+        body: JSON.stringify({ name, phone, email }),
+      });
+      setSuccess(`Registered! ${data.spots_left !== null ? data.spots_left + ' spots remaining' : data.participant_count + ' total signed'}`);
+      setName(''); setPhone(''); setEmail('');
+      onRegistered();
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 fade-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-xl font-bold">{event.title}</h3>
+            <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500">
+              <span>📅 {event.date}</span>
+              {event.time && <span>🕐 {event.time}{event.end_time ? ` - ${event.end_time}` : ''}</span>}
+              {event.location && <span>📍 {event.location}</span>}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        </div>
+
+        {event.description && (
+          <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap">{event.description}</p>
+        )}
+
+        {/* Participant count */}
+        <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg">
+          <div className="text-2xl font-bold text-primary">{event.participant_count}</div>
+          <div className="text-sm text-gray-500">
+            {event.max_participants > 0 ? (
+              <>
+                <div>of {event.max_participants} spots taken</div>
+                <div className={isFull ? 'text-red-500 font-semibold' : 'text-green-600'}>
+                  {isFull ? 'Event is full' : `${event.spots_left} spots remaining`}
+                </div>
+              </>
+            ) : (
+              <div>participants signed up</div>
+            )}
+          </div>
+        </div>
+
+        {/* Registration form */}
+        {!isFull ? (
+          <>
+            <h4 className="font-semibold text-sm mb-3">Sign Up for This Event</h4>
+            {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
+            {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-3 text-sm">{success}</div>}
+            <form onSubmit={handleRegister} className="space-y-3">
+              <input type="text" placeholder="Your Name *" value={name} onChange={e => setName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+              <input type="tel" placeholder="Phone (optional)" value={phone} onChange={e => setPhone(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+              <input type="email" placeholder="Email (optional)" value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+              <button type="submit" disabled={loading}
+                className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
+                Sign Up
+              </button>
+            </form>
+          </>
+        ) : (
+          <div className="text-center py-4 text-gray-400">Registration is closed — event is full.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ────────────────────────────────────────────
+function App() {
+  const [month, setMonth] = useState(new Date().getMonth());
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
+  const fetchEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch(`/events/public?month=${month + 1}&year=${year}`);
+      setEvents(data);
+    } catch (err) { console.error(err); }
+    setLoading(false);
+  }, [month, year]);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  function handlePrev() {
+    if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
+  }
+  function handleNext() {
+    if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1);
+  }
+
+  function handleEventClick(event) {
+    setSelectedEvent(event);
+  }
+
+  function handleRegistered() {
+    fetchEvents();
+    // Update the selected event with fresh data
+    if (selectedEvent) {
+      const updated = events.find(e => e.id === selectedEvent.id);
+      // Will be updated on next render from fetchEvents
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-bgLight">
+      <header className="bg-white shadow-sm border-b border-gray-100">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+          <a href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition" style={{textDecoration:'none'}}>Ofarim</a>
+          <a href="/" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>דף הבית</a>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <MonthNavigator month={month} year={year} onPrev={handlePrev} onNext={handleNext} />
+          {loading ? (
+            <div className="flex justify-center py-20"><div className="spinner"></div></div>
+          ) : (
+            <DayGrid month={month} year={year} events={events} onEventClick={handleEventClick} />
+          )}
+        </div>
+
+        {/* Upcoming Events List */}
+        <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-bold mb-4">Upcoming Events</h3>
+          {events.length === 0 ? (
+            <p className="text-gray-400 text-sm">No events this month.</p>
+          ) : (
+            <div className="space-y-2">
+              {events.sort((a,b) => a.date.localeCompare(b.date)).map(ev => (
+                <div key={ev.id} onClick={() => handleEventClick(ev)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: ev.color }}></div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm truncate">{ev.title}</div>
+                    <div className="text-xs text-gray-400">
+                      {ev.date} {ev.time && `at ${ev.time}`}
+                      {ev.location && ` · ${ev.location}`}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold text-primary">{ev.participant_count}</div>
+                    <div className="text-xs text-gray-400">
+                      {ev.max_participants > 0 ? `/ ${ev.max_participants}` : 'signed'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="text-center py-6 text-xs text-gray-400">
+        Ofarim &copy; {new Date().getFullYear()}
+        <span className="mx-2">·</span>
+        <a href="/" className="hover:text-primary transition">דף הבית</a>
+      </footer>
+
+      {selectedEvent && (
+        <EventModal event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onRegistered={handleRegistered} />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
