@@ -30,8 +30,13 @@ tailwind.config = {
 <script type="text/babel">
 const { useState, useEffect, useCallback } = React;
 
+function getUserToken() { return localStorage.getItem('ofarim_user_token'); }
+function getUserData() { try { return JSON.parse(localStorage.getItem('ofarim_user')); } catch(e) { return null; } }
+
 async function apiFetch(url, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const token = getUserToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
   const res = await fetch('/api' + url, { ...options, headers });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Request failed');
@@ -116,12 +121,14 @@ function DayGrid({ month, year, events, onEventClick }) {
 
 // ─── Event Detail + Sign Up Modal ────────────────────────
 function EventModal({ event, onClose, onRegistered }) {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const userData = getUserData();
+  const [name, setName] = useState(userData?.name || '');
+  const [phone, setPhone] = useState(userData?.phone || '');
+  const [email, setEmail] = useState(userData?.email || '');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showCalendarBtn, setShowCalendarBtn] = useState(false);
 
   const isFull = event.spots_left !== null && event.spots_left <= 0;
 
@@ -136,6 +143,7 @@ function EventModal({ event, onClose, onRegistered }) {
         body: JSON.stringify({ name, phone, email }),
       });
       setSuccess(`Registered! ${data.spots_left !== null ? data.spots_left + ' spots remaining' : data.participant_count + ' total signed'}`);
+      setShowCalendarBtn(true);
       setName(''); setPhone(''); setEmail('');
       onRegistered();
     } catch (err) {
@@ -186,6 +194,13 @@ function EventModal({ event, onClose, onRegistered }) {
             <h4 className="font-semibold text-sm mb-3">Sign Up for This Event</h4>
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
             {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-3 text-sm">{success}</div>}
+            {showCalendarBtn && (
+              <a href={`/api/events/${event.id}/calendar.ics`} download
+                className="block text-center py-2.5 mb-3 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-700 transition"
+                style={{textDecoration:'none'}}>
+                📅 הוספה ליומן
+              </a>
+            )}
             <form onSubmit={handleRegister} className="space-y-3">
               <input type="text" placeholder="Your Name *" value={name} onChange={e => setName(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
@@ -252,7 +267,14 @@ function App() {
       <header className="bg-white shadow-sm border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <a href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition" style={{textDecoration:'none'}}>Ofarim</a>
-          <a href="/" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>דף הבית</a>
+          <div className="flex items-center gap-4">
+            {getUserToken() ? (
+              <a href="/dashboard" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>האזור שלי</a>
+            ) : (
+              <a href="/login" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>כניסה / הרשמה</a>
+            )}
+            <a href="/" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>דף הבית</a>
+          </div>
         </div>
       </header>
 

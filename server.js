@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const db = require('./db');
 const authRoutes = require('./routes/auth');
+const userAuthRoutes = require('./routes/userAuth');
 const eventRoutes = require('./routes/events');
 const { authenticateToken } = require('./middleware/auth');
 
@@ -15,6 +16,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/user-auth', userAuthRoutes);
 app.use('/api/events', eventRoutes);
 
 // Serve frontend
@@ -28,6 +30,14 @@ app.get('/calendar', (req, res) => {
 
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 // Initialize database and start server

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ofarim — כניסה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
+    color: #5a4a32;
+  }
+  .container {
+    width: 100%; max-width: 420px;
+    padding: 20px;
+  }
+  .logo-link {
+    display: block; text-align: center; margin-bottom: 24px;
+    text-decoration: none; color: #5a4a32;
+  }
+  .logo-link img { width: 120px; border-radius: 14px; }
+  .logo-link h1 { font-size: 1.4rem; margin-top: 8px; }
+
+  .card {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(168,143,100,0.2);
+    border-radius: 16px;
+    padding: 32px 28px;
+  }
+
+  .tabs {
+    display: flex; gap: 0; margin-bottom: 24px;
+    border-radius: 10px; overflow: hidden;
+    border: 1px solid rgba(168,143,100,0.3);
+  }
+  .tab {
+    flex: 1; padding: 12px; text-align: center;
+    font-weight: 600; font-size: 0.95rem;
+    cursor: pointer; border: none;
+    background: transparent; color: #8b7a5e;
+    font-family: inherit; transition: all 0.2s;
+  }
+  .tab.active {
+    background: #5a4a32; color: #fff;
+  }
+
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block; font-size: 0.85rem; font-weight: 600;
+    margin-bottom: 4px; color: #5a4a32;
+  }
+  .form-group input {
+    width: 100%; padding: 12px 14px;
+    border: 1px solid rgba(168,143,100,0.3);
+    border-radius: 10px; font-size: 0.95rem;
+    font-family: inherit; background: #fff;
+    color: #5a4a32;
+  }
+  .form-group input:focus {
+    outline: none; border-color: #5a4a32;
+  }
+
+  .btn-submit {
+    width: 100%; padding: 13px;
+    background: #5a4a32; color: #fff;
+    border: none; border-radius: 10px;
+    font-size: 1rem; font-weight: 700;
+    font-family: inherit; cursor: pointer;
+    margin-top: 8px; transition: opacity 0.2s;
+  }
+  .btn-submit:hover { opacity: 0.9; }
+  .btn-submit:disabled { opacity: 0.5; cursor: default; }
+
+  .error-msg {
+    background: rgba(231,76,60,0.1); color: #e74c3c;
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 0.85rem; margin-bottom: 14px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .back-link {
+    display: block; text-align: center;
+    margin-top: 20px; font-size: 0.85rem;
+    color: #8b7a5e; text-decoration: none;
+  }
+  .back-link:hover { color: #5a4a32; }
+
+  footer {
+    position: fixed; bottom: 0; width: 100%;
+    text-align: center; padding: 16px;
+    font-size: 12px; color: #b0a080;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <a href="/" class="logo-link">
+    <img src="/images/logo.jpeg" alt="Ofarim">
+    <h1>עופרים</h1>
+  </a>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">כניסה</button>
+      <button class="tab" onclick="switchTab('register')">הרשמה</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <!-- Login Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>אימייל</label>
+        <input type="email" id="loginEmail" placeholder="your@email.com" required dir="ltr">
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input type="password" id="loginPassword" placeholder="הסיסמה שלך" required>
+      </div>
+      <button type="submit" class="btn-submit" id="loginBtn">כניסה</button>
+    </form>
+
+    <!-- Register Form -->
+    <form id="registerForm" style="display:none" onsubmit="handleRegister(event)">
+      <div class="form-group">
+        <label>שם מלא</label>
+        <input type="text" id="regName" placeholder="השם שלך" required>
+      </div>
+      <div class="form-group">
+        <label>אימייל</label>
+        <input type="email" id="regEmail" placeholder="your@email.com" required dir="ltr">
+      </div>
+      <div class="form-group">
+        <label>טלפון (אופציונלי)</label>
+        <input type="tel" id="regPhone" placeholder="050-1234567" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label>סיסמה</label>
+        <input type="password" id="regPassword" placeholder="לפחות 6 תווים" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label>אימות סיסמה</label>
+        <input type="password" id="regConfirm" placeholder="הקלידי שוב" required>
+      </div>
+      <button type="submit" class="btn-submit" id="regBtn">הרשמה</button>
+    </form>
+  </div>
+
+  <a href="/" class="back-link">← חזרה לדף הבית</a>
+</div>
+
+<footer>עופרים &copy; 2025 — נשים בטבע</footer>
+
+<script>
+  // If already logged in, redirect to dashboard
+  if (localStorage.getItem('ofarim_user_token')) {
+    fetch('/api/user-auth/me', {
+      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('ofarim_user_token') }
+    }).then(r => { if (r.ok) window.location.href = '/dashboard'; });
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('errorMsg').className = 'error-msg';
+    if (tab === 'login') {
+      document.querySelectorAll('.tab')[0].classList.add('active');
+      document.getElementById('loginForm').style.display = '';
+      document.getElementById('registerForm').style.display = 'none';
+    } else {
+      document.querySelectorAll('.tab')[1].classList.add('active');
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = '';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.className = 'error-msg show';
+  }
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/api/user-auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('loginEmail').value,
+          password: document.getElementById('loginPassword').value
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok) { showError(data.error); btn.disabled = false; return; }
+      localStorage.setItem('ofarim_user_token', data.token);
+      localStorage.setItem('ofarim_user', JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch (err) {
+      showError('שגיאת שרת: ' + err.message);
+      btn.disabled = false;
+    }
+  }
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    const pw = document.getElementById('regPassword').value;
+    const confirm = document.getElementById('regConfirm').value;
+    if (pw !== confirm) { showError('הסיסמאות לא תואמות'); return; }
+
+    const btn = document.getElementById('regBtn');
+    btn.disabled = true;
+    try {
+      const resp = await fetch('/api/user-auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('regName').value,
+          email: document.getElementById('regEmail').value,
+          phone: document.getElementById('regPhone').value,
+          password: pw
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok) { showError(data.error); btn.disabled = false; return; }
+      localStorage.setItem('ofarim_user_token', data.token);
+      localStorage.setItem('ofarim_user', JSON.stringify(data.user));
+      window.location.href = '/dashboard';
+    } catch (err) {
+      showError('שגיאת שרת: ' + err.message);
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>

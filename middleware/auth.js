@@ -19,12 +19,21 @@ function authenticateToken(req, res, next) {
   }
 }
 
-function generateToken(user) {
+function generateToken(user, role = 'user') {
   return jwt.sign(
-    { id: user.id, email: user.email, name: user.name },
+    { id: user.id, email: user.email, name: user.name, role },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
 }
 
-module.exports = { authenticateToken, generateToken, JWT_SECRET };
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token) {
+    try { req.user = jwt.verify(token, JWT_SECRET); } catch (e) {}
+  }
+  next();
+}
+
+module.exports = { authenticateToken, generateToken, optionalAuth, JWT_SECRET };

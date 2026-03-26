@@ -18,6 +18,15 @@ function initialize() {
       created_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      phone TEXT DEFAULT '',
+      password TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
@@ -37,13 +46,22 @@ function initialize() {
       name TEXT NOT NULL,
       phone TEXT DEFAULT '',
       email TEXT DEFAULT '',
+      user_id INTEGER DEFAULT NULL,
       signed_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
     CREATE INDEX IF NOT EXISTS idx_participants_event ON participants(event_id);
+    CREATE INDEX IF NOT EXISTS idx_participants_user ON participants(user_id);
   `);
+
+  // Migration: add user_id column if missing (existing databases)
+  try {
+    db.prepare("SELECT user_id FROM participants LIMIT 1").get();
+  } catch (e) {
+    db.exec("ALTER TABLE participants ADD COLUMN user_id INTEGER DEFAULT NULL");
+  }
 
   // Create default admin if none exists
   const adminCount = db.prepare('SELECT COUNT(*) as count FROM admins').get().count;

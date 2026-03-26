@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ofarim — האזור שלי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
+    background-attachment: fixed;
+    color: #5a4a32;
+  }
+  .header {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(168,143,100,0.2);
+    padding: 14px 20px;
+    display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .header a {
+    text-decoration: none; color: #5a4a32;
+    font-weight: 700; font-size: 1.2rem;
+  }
+  .header-links { display: flex; gap: 12px; align-items: center; }
+  .header-links a {
+    font-size: 0.85rem; font-weight: 400;
+    color: #8b7a5e; text-decoration: none;
+    padding: 6px 12px; border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .header-links a:hover { background: rgba(90,74,50,0.08); color: #5a4a32; }
+  .btn-logout {
+    padding: 6px 14px; border-radius: 8px;
+    border: 1px solid rgba(168,143,100,0.3);
+    background: transparent; color: #8b7a5e;
+    font-family: inherit; font-size: 0.82rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-logout:hover { background: rgba(231,76,60,0.08); color: #e74c3c; border-color: rgba(231,76,60,0.3); }
+
+  .container { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
+
+  .welcome {
+    font-size: 1.3rem; font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .welcome-sub {
+    font-size: 0.9rem; color: #8b7a5e;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 1.1rem; font-weight: 700;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .badge-count {
+    background: #5a4a32; color: #fff;
+    font-size: 0.72rem; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px;
+  }
+
+  .event-card {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(168,143,100,0.2);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    transition: all 0.2s;
+  }
+  .event-card:hover {
+    border-color: rgba(168,143,100,0.4);
+    box-shadow: 0 4px 16px rgba(120,100,60,0.1);
+  }
+  .event-card.past { opacity: 0.6; }
+
+  .event-header {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 8px;
+  }
+  .event-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px;
+  }
+  .event-title { font-weight: 700; font-size: 1rem; }
+  .event-meta {
+    font-size: 0.82rem; color: #8b7a5e;
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-bottom: 10px; padding-right: 24px;
+  }
+  .event-actions {
+    display: flex; gap: 10px; padding-right: 24px;
+  }
+  .btn-calendar {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px;
+    background: #5a4a32; color: #fff;
+    text-decoration: none; font-size: 0.82rem;
+    font-weight: 600; transition: opacity 0.2s;
+  }
+  .btn-calendar:hover { opacity: 0.85; }
+  .btn-view {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px;
+    background: transparent; color: #5a4a32;
+    border: 1px solid rgba(168,143,100,0.3);
+    text-decoration: none; font-size: 0.82rem;
+    font-weight: 600; transition: all 0.2s;
+  }
+  .btn-view:hover { background: rgba(90,74,50,0.06); }
+
+  .empty-state {
+    text-align: center; padding: 40px 20px;
+    color: #8b7a5e;
+  }
+  .empty-state p { margin-bottom: 16px; font-size: 0.95rem; }
+  .empty-state a {
+    display: inline-block; padding: 10px 24px;
+    background: #5a4a32; color: #fff;
+    text-decoration: none; border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .past-toggle {
+    cursor: pointer; font-size: 0.9rem;
+    color: #8b7a5e; margin-top: 24px;
+    display: flex; align-items: center; gap: 6px;
+    user-select: none;
+  }
+  .past-toggle:hover { color: #5a4a32; }
+  .chevron { transition: transform 0.2s; display: inline-block; }
+  .chevron.open { transform: rotate(90deg); }
+
+  .loading {
+    text-align: center; padding: 40px;
+    color: #8b7a5e; font-size: 0.9rem;
+  }
+
+  footer {
+    text-align: center; padding: 24px;
+    font-size: 12px; color: #b0a080;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-right">
+    <a href="/">עופרים</a>
+    <span id="userName" style="font-size:0.85rem;color:#8b7a5e;font-weight:400;"></span>
+  </div>
+  <div class="header-links">
+    <a href="/calendar">לוח אירועים</a>
+    <a href="/">דף הבית</a>
+    <button class="btn-logout" onclick="logout()">התנתקות</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="content">
+    <div class="loading">טוען...</div>
+  </div>
+</div>
+
+<footer>עופרים &copy; 2025 — נשים בטבע</footer>
+
+<script>
+  const token = localStorage.getItem('ofarim_user_token');
+  if (!token) window.location.href = '/login';
+
+  let userData = null;
+  try { userData = JSON.parse(localStorage.getItem('ofarim_user')); } catch(e) {}
+
+  if (userData) {
+    document.getElementById('userName').textContent = 'שלום, ' + userData.name;
+  }
+
+  function logout() {
+    localStorage.removeItem('ofarim_user_token');
+    localStorage.removeItem('ofarim_user');
+    window.location.href = '/';
+  }
+
+  async function loadMyEvents() {
+    try {
+      const resp = await fetch('/api/events/my-events', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (resp.status === 401 || resp.status === 403) {
+        localStorage.removeItem('ofarim_user_token');
+        window.location.href = '/login';
+        return;
+      }
+      const events = await resp.json();
+      renderEvents(events);
+    } catch (e) {
+      document.getElementById('content').innerHTML =
+        '<div class="empty-state"><p>שגיאה בטעינת האירועים</p></div>';
+    }
+  }
+
+  function renderEvents(events) {
+    const container = document.getElementById('content');
+    const today = new Date().toISOString().split('T')[0];
+
+    const upcoming = events.filter(e => e.date >= today);
+    const past = events.filter(e => e.date < today);
+
+    if (events.length === 0) {
+      container.innerHTML = `
+        <div class="welcome">שלום ${userData ? userData.name : ''}</div>
+        <div class="welcome-sub">כאן תוכלי לראות את האירועים שנרשמת אליהם</div>
+        <div class="empty-state">
+          <p>עדיין לא נרשמת לאירועים</p>
+          <a href="/calendar">לצפייה בלוח האירועים</a>
+        </div>`;
+      return;
+    }
+
+    let html = `
+      <div class="welcome">שלום ${userData ? userData.name : ''}</div>
+      <div class="welcome-sub">כאן תוכלי לראות את האירועים שנרשמת אליהם</div>`;
+
+    if (upcoming.length > 0) {
+      html += `<div class="section-title">אירועים קרובים <span class="badge-count">${upcoming.length}</span></div>`;
+      upcoming.sort((a, b) => a.date.localeCompare(b.date));
+      upcoming.forEach(ev => { html += renderCard(ev, false); });
+    }
+
+    if (past.length > 0) {
+      html += `
+        <div class="past-toggle" onclick="togglePast()">
+          <span class="chevron" id="pastChevron">◀</span>
+          אירועים שעברו (${past.length})
+        </div>
+        <div id="pastEvents" style="display:none;margin-top:12px;">`;
+      past.forEach(ev => { html += renderCard(ev, true); });
+      html += '</div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  function renderCard(ev, isPast) {
+    const meta = [];
+    meta.push(ev.date);
+    if (ev.time) meta.push(ev.time + (ev.end_time ? ' - ' + ev.end_time : ''));
+    if (ev.location) meta.push(ev.location);
+
+    return `
+      <div class="event-card${isPast ? ' past' : ''}">
+        <div class="event-header">
+          <div class="event-dot" style="background:${ev.color || '#3498db'}"></div>
+          <div class="event-title">${escHtml(ev.title)}</div>
+        </div>
+        <div class="event-meta">${meta.map(m => '<span>' + escHtml(m) + '</span>').join('')}</div>
+        <div class="event-actions">
+          <a class="btn-calendar" href="/api/events/${ev.id}/calendar.ics" download>
+            📅 הוספה ליומן
+          </a>
+          <a class="btn-view" href="/calendar">
+            צפייה בלוח
+          </a>
+        </div>
+      </div>`;
+  }
+
+  function togglePast() {
+    const el = document.getElementById('pastEvents');
+    const chevron = document.getElementById('pastChevron');
+    if (el.style.display === 'none') {
+      el.style.display = 'block';
+      chevron.classList.add('open');
+    } else {
+      el.style.display = 'none';
+      chevron.classList.remove('open');
+    }
+  }
+
+  function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadMyEvents();
+</script>
+</body>
+</html>

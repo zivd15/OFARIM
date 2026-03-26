@@ -1,6 +1,6 @@
 const express = require('express');
 const { db } = require('../db');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -36,8 +36,66 @@ router.get('/public', (req, res) => {
   res.json(events);
 });
 
+// GET /api/events/my-events (user's registered events)
+router.get('/my-events', authenticateToken, (req, res) => {
+  const events = db.prepare(`
+    SELECT e.*, p.signed_at as registered_at, p.id as participant_id
+    FROM participants p
+    JOIN events e ON e.id = p.event_id
+    WHERE p.user_id = ?
+    ORDER BY e.date DESC, e.time DESC
+  `).all(req.user.id);
+
+  const countStmt = db.prepare('SELECT COUNT(*) as count FROM participants WHERE event_id = ?');
+  const result = events.map(e => ({
+    ...e,
+    participant_count: countStmt.get(e.id).count,
+    spots_left: e.max_participants > 0 ? Math.max(0, e.max_participants - countStmt.get(e.id).count) : null,
+  }));
+
+  res.json(result);
+});
+
+// GET /api/events/:id/calendar.ics (download .ics file)
+router.get('/:id/calendar.ics', (req, res) => {
+  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+
+  const formatDate = (date, time) => {
+    const d = date.replace(/-/g, '');
+    if (!time) return d;
+    const t = time.replace(/:/g, '').padEnd(6, '0');
+    return d + 'T' + t;
+  };
+
+  const dtStart = formatDate(event.date, event.time);
+  const dtEnd = event.end_time ? formatDate(event.date, event.end_time) : (event.time ? formatDate(event.date, event.time) : dtStart);
+  const isAllDay = !event.time;
+
+  const escIcs = (s) => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+
+  let ics = `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Ofarim//Events//EN\r\nBEGIN:VEVENT\r\nUID:event-${event.id}@ofarim\r\n`;
+
+  if (isAllDay) {
+    ics += `DTSTART;VALUE=DATE:${dtStart}\r\n`;
+  } else {
+    ics += `DTSTART:${dtStart}\r\nDTEND:${dtEnd}\r\n`;
+  }
+
+  ics += `SUMMARY:${escIcs(event.title)}\r\n`;
+  if (event.description) ics += `DESCRIPTION:${escIcs(event.description)}\r\n`;
+  if (event.location) ics += `LOCATION:${escIcs(event.location)}\r\n`;
+  ics += `END:VEVENT\r\nEND:VCALENDAR\r\n`;
+
+  res.set({
+    'Content-Type': 'text/calendar; charset=utf-8',
+    'Content-Disposition': `attachment; filename="${event.title.replace(/[^a-zA-Z0-9\u0590-\u05FF ]/g, '')}.ics"`
+  });
+  res.send(ics);
+});
+
 // POST /api/events/:id/register (public sign up)
-router.post('/:id/register', (req, res) => {
+router.post('/:id/register', optionalAuth, (req, res) => {
   const { name, phone, email } = req.body;
 
   if (!name || !name.trim()) {
@@ -55,8 +113,15 @@ router.post('/:id/register', (req, res) => {
     }
   }
 
-  // Check for duplicate registration (same name + phone for same event)
-  if (phone) {
+  // Check for duplicate registration
+  if (req.user) {
+    const existing = db.prepare(
+      'SELECT id FROM participants WHERE event_id = ? AND user_id = ?'
+    ).get(event.id, req.user.id);
+    if (existing) {
+      return res.status(409).json({ error: 'You are already registered for this event' });
+    }
+  } else if (phone) {
     const existing = db.prepare(
       'SELECT id FROM participants WHERE event_id = ? AND name = ? AND phone = ?'
     ).get(event.id, name.trim(), phone.trim());
@@ -65,9 +130,10 @@ router.post('/:id/register', (req, res) => {
     }
   }
 
+  const userId = req.user ? req.user.id : null;
   const result = db.prepare(
-    'INSERT INTO participants (event_id, name, phone, email) VALUES (?, ?, ?, ?)'
-  ).run(event.id, name.trim(), phone?.trim() || '', email?.trim() || '');
+    'INSERT INTO participants (event_id, name, phone, email, user_id) VALUES (?, ?, ?, ?, ?)'
+  ).run(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId);
 
   const count = db.prepare('SELECT COUNT(*) as count FROM participants WHERE event_id = ?').get(event.id).count;
 
