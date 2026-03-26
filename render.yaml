@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ofarim
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        value: ofarim-secret-key-2026
