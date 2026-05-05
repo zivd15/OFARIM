@@ -2,18 +2,18 @@
   "name": "ofarim",
   "version": "1.0.0",
   "description": "Events & Calendar Management Web App",
-  "engines": {
-    "node": ">=18"
-  },
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "wrangler pages dev public --compatibility-date=2024-09-23",
+    "deploy": "wrangler pages deploy public",
+    "db:create": "wrangler d1 create ofarim",
+    "db:init": "wrangler d1 execute ofarim --file=schema.sql",
+    "db:init:remote": "wrangler d1 execute ofarim --file=schema.sql --remote"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "better-sqlite3": "^11.0.0",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "cors": "^2.8.5"
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.80.0"
   }
 }

@@ -1,2 +1,6 @@
 node_modules/
 ofarim.db
+ofarim.db-shm
+ofarim.db-wal
+.wrangler/
+.dev.vars
