@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>עופרים — נשים בטבע</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -15,214 +15,263 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
-    background-attachment: fixed;
+    background: #f4efe6;
     position: relative;
   }
 
-  /* Nature background decorations */
   body::before {
     content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    position: fixed;
+    inset: 0;
     background:
-      radial-gradient(circle at 10% 20%, rgba(139,119,80,0.06) 0%, transparent 50%),
-      radial-gradient(circle at 90% 80%, rgba(139,119,80,0.06) 0%, transparent 50%),
-      radial-gradient(circle at 50% 50%, rgba(168,143,100,0.04) 0%, transparent 60%);
+      radial-gradient(ellipse at 20% 0%, rgba(160,138,100,0.12) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(140,120,80,0.10) 0%, transparent 55%);
     pointer-events: none;
   }
 
-  .container {
-    text-align: center;
-    padding: 40px 24px 60px;
+  .page {
     position: relative;
     z-index: 1;
-    max-width: 600px;
     width: 100%;
+    max-width: 480px;
+    padding: 48px 28px 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .logo-wrapper {
-    margin-bottom: 24px;
-    animation: fadeInDown 1s ease-out;
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: appear 0.8s ease-out 0.1s forwards;
   }
 
   .logo-wrapper img {
-    width: 280px;
-    max-width: 80vw;
-    height: auto;
-    border-radius: 20px;
-    filter: drop-shadow(0 8px 24px rgba(120,100,60,0.15));
+    width: 160px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 50%;
+    box-shadow: 0 2px 24px rgba(100,80,40,0.18);
   }
 
-  .welcome-text {
-    font-size: 26px;
-    font-weight: 700;
-    color: #5a4a32;
+  .brand {
+    text-align: center;
     margin-bottom: 8px;
-    animation: fadeIn 1.2s ease-out 0.3s both;
+    opacity: 0;
+    animation: appear 0.8s ease-out 0.25s forwards;
   }
 
-  .subtitle {
-    font-size: 16px;
-    color: #8b7a5e;
-    margin-bottom: 48px;
-    font-weight: 300;
+  .brand-name {
+    font-size: 28px;
+    font-weight: 600;
+    color: #3d2f1a;
     letter-spacing: 0.5px;
-    animation: fadeIn 1.2s ease-out 0.5s both;
+    margin-bottom: 6px;
   }
 
-  .links {
+  .brand-tagline {
+    font-size: 13px;
+    font-weight: 300;
+    color: #9e8c70;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: rgba(140,118,80,0.35);
+    margin: 24px auto 32px;
+    opacity: 0;
+    animation: appear 0.8s ease-out 0.4s forwards;
+  }
+
+  .nav {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    align-items: center;
-    animation: fadeInUp 1s ease-out 0.7s both;
+    gap: 10px;
+    opacity: 0;
+    animation: appear 0.8s ease-out 0.55s forwards;
   }
 
-  .link-card {
+  .nav-item {
     display: flex;
     align-items: center;
     gap: 16px;
-    width: 100%;
-    max-width: 380px;
-    padding: 20px 28px;
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(168,143,100,0.2);
-    border-radius: 16px;
+    padding: 18px 22px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(168,143,100,0.18);
+    border-radius: 12px;
     text-decoration: none;
-    color: #5a4a32;
-    transition: all 0.3s ease;
-    cursor: pointer;
+    color: #3d2f1a;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    backdrop-filter: blur(8px);
   }
 
-  .link-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(120,100,60,0.15);
-    border-color: rgba(168,143,100,0.4);
-    background: rgba(255,255,255,0.95);
+  .nav-item:hover {
+    background: rgba(255,255,255,0.92);
+    border-color: rgba(140,118,80,0.35);
+    box-shadow: 0 4px 20px rgba(100,80,40,0.10);
   }
 
-  .link-icon {
-    font-size: 32px;
+  .nav-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: rgba(140,118,80,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    transition: background 0.2s;
   }
 
-  .link-content {
+  .nav-item:hover .nav-icon {
+    background: rgba(140,118,80,0.18);
+  }
+
+  .nav-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: #7a6440;
+    fill: none;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .nav-text {
+    flex: 1;
     text-align: right;
   }
 
-  .link-title {
-    font-size: 18px;
-    font-weight: 700;
+  .nav-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #3d2f1a;
     margin-bottom: 2px;
   }
 
-  .link-desc {
-    font-size: 13px;
-    color: #a0906e;
+  .nav-desc {
+    font-size: 12px;
     font-weight: 300;
+    color: #9e8c70;
   }
 
-  .link-arrow {
-    margin-right: auto;
-    margin-left: 0;
-    font-size: 20px;
-    color: #c0b090;
-    transition: transform 0.3s;
+  .nav-chevron {
+    flex-shrink: 0;
+    color: #c4b090;
+    transition: transform 0.2s, color 0.2s;
   }
 
-  .link-card:hover .link-arrow {
-    transform: translateX(-4px);
+  .nav-item:hover .nav-chevron {
+    transform: translateX(-3px);
+    color: #9e8c70;
   }
 
-  /* Decorative leaves */
-  .leaf {
-    position: absolute;
-    opacity: 0.08;
-    pointer-events: none;
-    font-size: 80px;
+  .nav-chevron svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
-  .leaf-1 { top: 5%; left: 5%; transform: rotate(-30deg); }
-  .leaf-2 { top: 15%; right: 8%; transform: rotate(45deg); }
-  .leaf-3 { bottom: 10%; left: 10%; transform: rotate(20deg); }
-  .leaf-4 { bottom: 20%; right: 5%; transform: rotate(-60deg); }
 
   footer {
     position: fixed;
     bottom: 0;
     width: 100%;
     text-align: center;
-    padding: 16px;
-    font-size: 12px;
-    color: #b0a080;
+    padding: 14px;
+    font-size: 11px;
+    font-weight: 300;
+    color: #b8a882;
+    letter-spacing: 0.5px;
   }
 
-  @keyframes fadeInDown {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   @media (max-width: 480px) {
-    .welcome-text { font-size: 22px; }
-    .logo-wrapper img { width: 220px; }
-    .link-card { padding: 16px 20px; }
+    .page { padding: 36px 20px 68px; }
+    .logo-wrapper img { width: 130px; height: 130px; }
+    .brand-name { font-size: 24px; }
   }
 </style>
 </head>
 <body>
 
-<div class="leaf leaf-1">🌿</div>
-<div class="leaf leaf-2">🍃</div>
-<div class="leaf leaf-3">🌿</div>
-<div class="leaf leaf-4">🍃</div>
+<div class="page">
 
-<div class="container">
   <div class="logo-wrapper">
-    <img src="/images/logo.jpeg" alt="עופרים — נשים בטבע" />
+    <img src="/images/logo.jpeg" alt="עופרים">
   </div>
 
-  <div class="welcome-text">ברוכות הבאות למקום בטוח</div>
-  <div class="subtitle">צמיחה, טיפוח, אכפתיות</div>
-
-  <div class="links">
-    <a href="/calendar" class="link-card">
-      <span class="link-icon">📅</span>
-      <div class="link-content">
-        <div class="link-title">לוח אירועים</div>
-        <div class="link-desc">צפייה באירועים והרשמה</div>
-      </div>
-      <span class="link-arrow">←</span>
-    </a>
-
-    <a href="/login" class="link-card">
-      <span class="link-icon">👩</span>
-      <div class="link-content">
-        <div class="link-title">האזור שלי</div>
-        <div class="link-desc">כניסה, הרשמה וצפייה באירועים שלי</div>
-      </div>
-      <span class="link-arrow">←</span>
-    </a>
-
-    <a href="/admin" class="link-card">
-      <span class="link-icon">⚙️</span>
-      <div class="link-content">
-        <div class="link-title">ניהול</div>
-        <div class="link-desc">כניסה למנהלות</div>
-      </div>
-      <span class="link-arrow">←</span>
-    </a>
+  <div class="brand">
+    <div class="brand-name">עופרים</div>
+    <div class="brand-tagline">נשים בטבע</div>
   </div>
+
+  <div class="divider"></div>
+
+  <nav class="nav">
+
+    <a href="/calendar" class="nav-item">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="18" rx="3"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
+      <div class="nav-text">
+        <div class="nav-title">לוח אירועים</div>
+        <div class="nav-desc">צפייה באירועים והרשמה</div>
+      </div>
+      <span class="nav-chevron">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </span>
+    </a>
+
+    <a href="/login" class="nav-item">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div class="nav-text">
+        <div class="nav-title">האזור שלי</div>
+        <div class="nav-desc">כניסה, הרשמה וצפייה באירועים שלי</div>
+      </div>
+      <span class="nav-chevron">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </span>
+    </a>
+
+    <a href="/admin" class="nav-item">
+      <div class="nav-icon">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+      <div class="nav-text">
+        <div class="nav-title">ניהול</div>
+        <div class="nav-desc">כניסה למנהלות</div>
+      </div>
+      <span class="nav-chevron">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </span>
+    </a>
+
+  </nav>
 </div>
 
 <footer>עופרים &copy; 2025 — נשים בטבע</footer>
