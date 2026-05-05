@@ -178,9 +178,11 @@
   let userData = null;
   try { userData = JSON.parse(localStorage.getItem('ofarim_user')); } catch(e) {}
 
-  if (userData) {
-    document.getElementById('userName').textContent = 'שלום, ' + userData.name;
+  function setUserName(name) {
+    document.getElementById('userName').textContent = 'שלום, ' + name;
   }
+
+  if (userData?.name) setUserName(userData.name);
 
   function logout() {
     localStorage.removeItem('ofarim_user_token');
@@ -190,15 +192,25 @@
 
   async function loadMyEvents() {
     try {
-      const resp = await fetch('/api/events/my-events', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (resp.status === 401 || resp.status === 403) {
+      // Fetch fresh user data and events in parallel
+      const [meResp, evResp] = await Promise.all([
+        fetch('/api/user-auth/me', { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch('/api/events/my-events', { headers: { 'Authorization': 'Bearer ' + token } })
+      ]);
+
+      if (meResp.ok) {
+        const me = await meResp.json();
+        localStorage.setItem('ofarim_user', JSON.stringify(me));
+        userData = me;
+        setUserName(me.name);
+      }
+
+      if (evResp.status === 401 || evResp.status === 403) {
         localStorage.removeItem('ofarim_user_token');
         window.location.href = '/login';
         return;
       }
-      const events = await resp.json();
+      const events = await evResp.json();
       renderEvents(events);
     } catch (e) {
       document.getElementById('content').innerHTML =

@@ -269,7 +269,12 @@ function App() {
           <a href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition" style={{textDecoration:'none'}}>Ofarim</a>
           <div className="flex items-center gap-4">
             {getUserToken() ? (
-              <a href="/dashboard" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>האזור שלי</a>
+              <>
+                {getUserData()?.name && (
+                  <span className="text-sm text-gray-500 font-medium">שלום, {getUserData().name}</span>
+                )}
+                <a href="/dashboard" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>האזור שלי</a>
+              </>
             ) : (
               <a href="/login" className="text-sm text-gray-400 hover:text-primary transition" style={{textDecoration:'none'}}>כניסה / הרשמה</a>
             )}
