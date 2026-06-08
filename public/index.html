@@ -3,267 +3,287 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>עופרים — גדולים יותר, חזקים יותר, חכמים יותר וטובי לב</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#152020">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<title>עופרים</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    font-family: 'Heebo', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: #f4efe6;
-    position: relative;
+  :root {
+    --dark:      #152020;
+    --teal:      #4E7772;
+    --mint:      #A0CCC1;
+    --gold:      #A09850;
+    --sage:      #7A9D78;
+    --rose:      #D4878A;
+    --purple:    #9A77B8;
+    --bg:        #F4F7F6;
+    --bg2:       #EDF2F1;
+    --border:    rgba(78,119,114,0.18);
+    --text:      #152020;
+    --text-muted:#5a7a76;
   }
-
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
+    position: relative;
+    color: var(--text);
+  }
   body::before {
     content: '';
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(160,138,100,0.12) 0%, transparent 55%),
-      radial-gradient(ellipse at 80% 100%, rgba(140,120,80,0.10) 0%, transparent 55%);
+      radial-gradient(ellipse at 15% 10%, rgba(160,204,193,0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(78,119,114,0.10) 0%, transparent 55%);
     pointer-events: none;
   }
-
   .page {
-    position: relative;
-    z-index: 1;
-    width: 100%;
-    max-width: 480px;
-    padding: 48px 28px 72px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    position: relative; z-index: 1;
+    width: 100%; max-width: 480px;
+    padding: 48px 28px 88px;
+    display: flex; flex-direction: column; align-items: center;
   }
 
+  /* Greeting */
+  .greeting-bar {
+    width: 100%; text-align: center;
+    margin-bottom: 24px;
+    opacity: 0; animation: appear 0.7s ease-out 0.05s forwards;
+  }
+  .greeting-name { font-size: 17px; font-weight: 600; color: var(--dark); margin-bottom: 2px; }
+  .greeting-datetime { font-size: 12px; font-weight: 300; color: var(--text-muted); }
+
+  /* Logo */
   .logo-wrapper {
-    margin-bottom: 32px;
-    opacity: 0;
-    animation: appear 0.8s ease-out 0.1s forwards;
+    margin-bottom: 36px;
+    opacity: 0; animation: appear 0.7s ease-out 0.1s forwards;
   }
-
   .logo-wrapper img {
-    width: 220px;
-    max-width: 70vw;
-    height: auto;
-    border-radius: 16px;
-    box-shadow: 0 2px 24px rgba(100,80,40,0.12);
-  }
-
-  .brand {
-    text-align: center;
-    margin-bottom: 8px;
-    opacity: 0;
-    animation: appear 0.8s ease-out 0.25s forwards;
-  }
-
-  .brand-name {
-    font-size: 28px;
-    font-weight: 600;
-    color: #3d2f1a;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-  }
-
-  .brand-tagline {
-    font-size: 13px;
-    font-weight: 300;
-    color: #9e8c70;
-    letter-spacing: 2px;
-    text-transform: uppercase;
+    width: 200px; max-width: 65vw; height: auto;
+    border-radius: 18px;
+    box-shadow: 0 4px 28px rgba(21,32,32,0.12);
   }
 
   .divider {
-    width: 40px;
-    height: 1px;
-    background: rgba(140,118,80,0.35);
-    margin: 24px auto 32px;
-    opacity: 0;
-    animation: appear 0.8s ease-out 0.4s forwards;
+    width: 32px; height: 2px;
+    background: var(--mint);
+    margin: 0 auto 32px;
+    opacity: 0; animation: appear 0.7s ease-out 0.3s forwards;
+    border-radius: 2px;
   }
 
+  /* Nav */
   .nav {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    opacity: 0;
-    animation: appear 0.8s ease-out 0.55s forwards;
+    width: 100%; display: flex; flex-direction: column; gap: 10px;
+    opacity: 0; animation: appear 0.7s ease-out 0.45s forwards;
   }
-
   .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 18px 22px;
-    background: rgba(255,255,255,0.72);
-    border: 1px solid rgba(168,143,100,0.18);
-    border-radius: 12px;
-    text-decoration: none;
-    color: #3d2f1a;
-    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.75);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-decoration: none; color: var(--text);
+    transition: all 0.2s;
     backdrop-filter: blur(8px);
+    cursor: pointer; font-family: inherit; font-size: inherit;
+    width: 100%; text-align: right;
   }
-
   .nav-item:hover {
-    background: rgba(255,255,255,0.92);
-    border-color: rgba(140,118,80,0.35);
-    box-shadow: 0 4px 20px rgba(100,80,40,0.10);
+    background: rgba(255,255,255,0.95);
+    border-color: var(--mint);
+    box-shadow: 0 4px 18px rgba(78,119,114,0.12);
+    transform: translateY(-1px);
   }
-
-  .nav-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: rgba(140,118,80,0.10);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.2s;
-  }
-
-  .nav-item:hover .nav-icon {
-    background: rgba(140,118,80,0.18);
-  }
-
-  .nav-icon svg {
-    width: 20px;
-    height: 20px;
-    stroke: #7a6440;
-    fill: none;
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .nav-text {
-    flex: 1;
-    text-align: right;
-  }
-
-  .nav-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #3d2f1a;
-    margin-bottom: 2px;
-  }
-
-  .nav-desc {
-    font-size: 12px;
-    font-weight: 300;
-    color: #9e8c70;
-  }
-
-  .nav-chevron {
-    flex-shrink: 0;
-    color: #c4b090;
-    transition: transform 0.2s, color 0.2s;
-  }
-
-  .nav-item:hover .nav-chevron {
-    transform: translateX(-3px);
-    color: #9e8c70;
-  }
-
+.nav-text { flex: 1; text-align: right; }
+  .nav-title { font-size: 15px; font-weight: 600; color: var(--dark); margin-bottom: 1px; }
+  .nav-desc  { font-size: 12px; font-weight: 300; color: var(--text-muted); }
+  .nav-chevron { flex-shrink: 0; color: var(--mint); transition: transform 0.2s, color 0.2s; }
+  .nav-item:hover .nav-chevron { transform: translateX(-3px); color: var(--teal); }
   .nav-chevron svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 15px; height: 15px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
   }
 
-  footer {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    text-align: center;
-    padding: 14px;
-    font-size: 11px;
-    font-weight: 300;
-    color: #b8a882;
-    letter-spacing: 0.5px;
+  /* Legal links */
+  .legal-links {
+    margin-top: 28px; text-align: center;
+    opacity: 0; animation: appear 0.7s ease-out 0.7s forwards;
   }
+  .legal-links a {
+    color: var(--teal); text-decoration: underline; font-size: 11px;
+  }
+  .legal-links a:hover { color: var(--dark); }
+  .legal-sep { color: var(--mint); margin: 0 6px; }
 
-  @keyframes appear {
-    from { opacity: 0; transform: translateY(10px); }
+  /* About modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(21,32,32,0.5);
+    backdrop-filter: blur(4px);
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff;
+    border-radius: 20px;
+    padding: 32px 28px;
+    max-width: 420px; width: 100%;
+    box-shadow: 0 20px 60px rgba(21,32,32,0.2);
+    position: relative;
+    animation: slideUp 0.25s ease-out;
+    border: 1px solid var(--border);
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  .modal-close {
+    position: absolute; top: 16px; left: 16px;
+    background: none; border: none;
+    font-size: 22px; cursor: pointer; color: var(--text-muted); line-height: 1;
+  }
+  .modal-close:hover { color: var(--dark); }
+  .modal-logo { text-align: center; margin-bottom: 16px; }
+  .modal-logo img { width: 70px; border-radius: 12px; }
+  .modal-title {
+    font-size: 1.2rem; font-weight: 700; color: var(--dark);
+    text-align: center; margin-bottom: 12px;
+  }
+  .modal-body { font-size: 0.9rem; line-height: 1.8; color: var(--text-muted); text-align: center; }
+  .modal-body p { margin-bottom: 8px; }
+  .modal-body p:last-child { margin-bottom: 0; }
+  .modal-body strong { color: var(--dark); }
 
+  /* Footer */
+  footer {
+    position: fixed; bottom: 0; width: 100%;
+    text-align: center; padding: 10px 16px;
+    font-size: 11px; color: var(--text-muted);
+    opacity: 0.7; line-height: 1.8;
+  }
+  .built-by { font-size: 10px; color: var(--mint); }
+
+  @keyframes appear {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
   @media (max-width: 480px) {
-    .page { padding: 36px 20px 68px; }
-    .logo-wrapper img { width: 130px; height: 130px; }
-    .brand-name { font-size: 24px; }
+    .page { padding: 32px 18px 88px; }
+    .logo-wrapper img { width: 150px; }
   }
 </style>
 </head>
 <body>
 
 <div class="page">
+  <div class="greeting-bar" id="greetingBar" style="display:none;">
+    <div class="greeting-name" id="greetingName"></div>
+    <div class="greeting-datetime" id="greetingDatetime"></div>
+  </div>
+
+  <div class="logo-wrapper">
+    <img src="/images/logo.png" alt="עופרים">
+  </div>
+
+  <div class="divider"></div>
 
   <nav class="nav">
 
-    <a href="/calendar" class="nav-item">
-      <div class="nav-icon">
-        <svg viewBox="0 0 24 24">
-          <rect x="3" y="4" width="18" height="18" rx="3"/>
-          <line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8" y1="2" x2="8" y2="6"/>
-          <line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
+    <button class="nav-item" onclick="openAbout()">
+      <div class="nav-text">
+        <div class="nav-title">מי אנחנו</div>
+        <div class="nav-desc">קצת עלינו</div>
       </div>
+      <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+    </button>
+
+    <a href="/calendar" class="nav-item">
       <div class="nav-text">
         <div class="nav-title">לוח אירועים</div>
         <div class="nav-desc">צפייה באירועים והרשמה</div>
       </div>
-      <span class="nav-chevron">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </span>
+      <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
     </a>
 
-    <a href="/login" class="nav-item">
-      <div class="nav-icon">
-        <svg viewBox="0 0 24 24">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </div>
+    <a href="/login" class="nav-item" id="myAreaLink">
       <div class="nav-text">
         <div class="nav-title">האזור שלי</div>
         <div class="nav-desc">כניסה, הרשמה וצפייה באירועים שלי</div>
       </div>
-      <span class="nav-chevron">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </span>
+      <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
     </a>
 
     <a href="/admin" class="nav-item">
-      <div class="nav-icon">
-        <svg viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </div>
       <div class="nav-text">
         <div class="nav-title">ניהול</div>
         <div class="nav-desc">כניסה למנהלות</div>
       </div>
-      <span class="nav-chevron">
-        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-      </span>
+      <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
     </a>
 
   </nav>
+
+  <div class="legal-links">
+    <a href="/terms">תקנון ותנאי שימוש</a>
+    <span class="legal-sep">·</span>
+    <a href="/privacy">מדיניות פרטיות</a>
+  </div>
 </div>
 
-<footer>עופרים &copy; 2025 — גדולים יותר, חזקים יותר, חכמים יותר וטובי לב</footer>
+<!-- About modal -->
+<div class="modal-overlay" id="aboutModal" onclick="closeAbout(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeAbout()">&times;</button>
+    <div class="modal-logo"><img src="/images/logo.png" alt="עופרים"></div>
+    <div class="modal-title">מי אנחנו?</div>
+    <div class="modal-body">
+      <p>אנחנו <strong>עופרים</strong> — קהילה של אנשים שאוהבים להתפתח, להתחזק ולצמוח יחד.</p>
+      <p>הפלטפורמה שלנו נבנתה כדי לאפשר הרשמה נוחה, פשוטה ובטוחה לאירועים, סדנאות ופעילויות.</p>
+      <p>ללא סיסמאות, ללא כאב ראש — רק כניסה באמצעות קוד שנשלח לאימייל.</p>
+    </div>
+  </div>
+</div>
 
+<footer>
+  עופרים &copy; 2026
+  <div class="built-by">נבנה על ידי High Standard Solution</div>
+</footer>
+
+<script>
+  function updateGreeting() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('ofarim_user')); } catch(e) {}
+    const token = localStorage.getItem('ofarim_user_token');
+    if (token && user?.name) {
+      const bar = document.getElementById('greetingBar');
+      bar.style.display = '';
+      document.getElementById('greetingName').textContent = 'שלום, ' + user.name + ' 👋';
+      const link = document.getElementById('myAreaLink');
+      if (link) link.href = '/dashboard';
+    }
+    updateClock();
+  }
+  const heDateTimeFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  function updateClock() {
+    const el = document.getElementById('greetingDatetime');
+    if (el) el.textContent = heDateTimeFmt.format(new Date());
+  }
+  updateGreeting();
+  setInterval(updateClock, 30000);
+
+  function openAbout() { document.getElementById('aboutModal').classList.add('open'); }
+  function closeAbout(e) {
+    if (!e || e.target === document.getElementById('aboutModal') || e.currentTarget?.tagName === 'BUTTON') {
+      document.getElementById('aboutModal').classList.remove('open');
+    }
+  }
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+</script>
 </body>
 </html>

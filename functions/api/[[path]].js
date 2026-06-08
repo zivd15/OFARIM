@@ -39,7 +39,11 @@ app.onError((err, c) => {
 // ── JWT ──────────────────────────────────────────────────────────────────────
 
 function b64url(str) {
-  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  // btoa() only handles Latin-1; encode to UTF-8 bytes first so Hebrew names work.
+  const bytes = new TextEncoder().encode(str)
+  let binary = ''
+  bytes.forEach(b => { binary += String.fromCharCode(b) })
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 function b64urlBytes(bytes) {
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
@@ -326,7 +330,7 @@ app.post('/user-auth/request-otp', async c => {
   // Deliver via Brevo BEFORE persisting, so a delivery failure doesn't lock the user
   // behind the cooldown holding a code they never received.
   const emailPayload = {
-    sender: { name: 'OFARIM', email: 'noreply@your-domain.com' }, // TODO: set verified sender domain
+    sender: { name: 'OFARIM', email: 'ofarim.grow@gmail.com' },
     to: [{ email: normEmail }],
     subject: 'קוד הכניסה שלך למערכת עופרים',
     htmlContent: `<div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
@@ -372,9 +376,6 @@ app.post('/user-auth/verify-otp', async c => {
   const normEmail = email.trim().toLowerCase()
   const codeStr = code.toString().trim()
 
-  // Atomically count THIS attempt against the active, unexpired code and read back
-  // the new count + stored code. Only rows with a live code are touched, so an
-  // already-used/expired/locked code matches nothing → generic 401.
   const row = await c.env.DB.prepare(`
     UPDATE users SET otp_attempts = otp_attempts + 1
      WHERE email = ? AND otp_code IS NOT NULL AND otp_expires_at > datetime('now')
@@ -573,6 +574,47 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
     status: 'waitlisted',
     message: 'This event is full. You have been added to the waitlist and will be notified if a seat opens up.',
   }, 200)
+})
+
+// Cancel own registration. Releases the seat and promotes the first waiter if any.
+app.delete('/events/:id/cancel-registration', authMiddleware, async c => {
+  const userId = c.get('user').id
+  const eventId = c.req.param('id')
+
+  const participant = await c.env.DB.prepare(
+    "SELECT id, status FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
+  ).bind(eventId, userId).first()
+
+  if (!participant) return c.json({ error: 'לא נמצאה הרשמה פעילה' }, 404)
+
+  await c.env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(participant.id).run()
+
+  if (participant.status === 'confirmed' || participant.status === 'pending') {
+    await c.env.DB.prepare(
+      'UPDATE events SET current_participants = MAX(0, current_participants - 1) WHERE id = ?'
+    ).bind(eventId).run()
+
+    // Promote first waiter
+    const waiter = await c.env.DB.prepare(
+      "SELECT id FROM participants WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at LIMIT 1"
+    ).bind(eventId).first()
+
+    if (waiter) {
+      const ev = await c.env.DB.prepare('SELECT price, max_participants, current_participants FROM events WHERE id = ?').bind(eventId).first()
+      const isFree = (ev?.price ?? 0) <= 0
+      const promoted = await c.env.DB.prepare(
+        `UPDATE events SET current_participants = current_participants + 1
+          WHERE id = ? AND (max_participants = 0 OR current_participants < max_participants)
+          RETURNING id`
+      ).bind(eventId).first()
+      if (promoted) {
+        await c.env.DB.prepare("UPDATE participants SET status = ? WHERE id = ?")
+          .bind(isFree ? 'confirmed' : 'pending', waiter.id).run()
+      }
+    }
+  }
+
+  return c.json({ message: 'ההרשמה בוטלה בהצלחה' })
 })
 
 // Confirm a pending hold once payment clears. Auth: admin JWT OR webhook secret.

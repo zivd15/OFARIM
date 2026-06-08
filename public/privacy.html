@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#5a4a32">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<title>OFARIM — מדיניות פרטיות</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    background: #F4F7F6;
+    color: #152020;
+    min-height: 100vh;
+  }
+  nav {
+    background: #152020;
+    border-bottom: 1px solid rgba(160,204,193,0.15);
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  nav a { text-decoration: none; color: #A0CCC1; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+  nav a img { height: 36px; width: auto; }
+  nav .back { font-size: 0.82rem; font-weight: 400; color: #A0CCC1; border: 1px solid rgba(160,204,193,0.25); padding: 6px 14px; text-decoration: none; transition: all .2s; border-radius: 7px; }
+  nav .back:hover { background: rgba(160,204,193,0.1); color: #fff; }
+
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  .doc-header { margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid rgba(168,143,100,0.25); }
+  .doc-header .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 3px; color: #4E7772; font-weight: 600; margin-bottom: 10px; }
+  .doc-header h1 { font-size: 2rem; font-weight: 800; line-height: 1.2; margin-bottom: 8px; color: #152020; }
+  .doc-header .updated { font-size: 0.82rem; color: #5a7a76; }
+
+  .section { margin-bottom: 36px; }
+  .section h2 {
+    font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+    color: #152020; margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 2px solid #A0CCC1;
+  }
+  .section h2 .num { color: #4E7772; margin-left: 8px; }
+  .section p { font-size: 0.92rem; line-height: 1.8; color: #3a5a56; margin-bottom: 12px; }
+  .section p:last-child { margin-bottom: 0; }
+  .section strong { color: #152020; font-weight: 700; }
+
+  .provider-card {
+    border: 1px solid rgba(78,119,114,0.15);
+    background: #fff;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .provider-card h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 6px; color: #152020; }
+  .provider-card p  { font-size: 0.85rem; line-height: 1.7; color: #3a5a56; margin: 0; }
+  .provider-card .tag {
+    display: inline-block; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; padding: 2px 8px; margin-bottom: 8px;
+    background: rgba(78,119,114,0.08); color: #4E7772; border: 1px solid rgba(78,119,114,0.2);
+    border-radius: 4px;
+  }
+
+  .rights-list { list-style: none; }
+  .rights-list li {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 0; border-bottom: 1px solid rgba(78,119,114,0.1);
+    font-size: 0.9rem; line-height: 1.6; color: #3a5a56;
+  }
+  .rights-list li:last-child { border-bottom: none; }
+  .rights-list .dot { width: 6px; height: 6px; background: #A0CCC1; margin-top: 7px; flex-shrink: 0; border-radius: 50%; }
+
+  .highlight {
+    background: rgba(160,152,80,0.10); border-right: 3px solid #A09850;
+    padding: 12px 16px; margin: 16px 0; font-size: 0.88rem; line-height: 1.7; color: #3a5a56;
+  }
+  .info-box {
+    background: rgba(78,119,114,0.07); border-right: 3px solid #4E7772;
+    padding: 12px 16px; margin: 16px 0; font-size: 0.88rem; line-height: 1.7; color: #3a5a56;
+  }
+  .no-payment {
+    background: rgba(122,157,120,0.10); border-right: 3px solid #7A9D78;
+    padding: 12px 16px; margin: 16px 0; font-size: 0.88rem; line-height: 1.7; color: #3a5a56;
+  }
+
+  .other-doc {
+    margin-top: 48px; padding: 20px 24px;
+    background: #fff; border: 1px solid rgba(78,119,114,0.15);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .other-doc p { font-size: 0.88rem; color: #5a7a76; }
+  .other-doc a { font-size: 0.85rem; font-weight: 700; color: #4E7772; text-decoration: none; border-bottom: 1px solid rgba(78,119,114,0.3); }
+  .other-doc a:hover { border-color: #4E7772; color: #152020; }
+
+  footer { text-align: center; padding: 24px; font-size: 0.75rem; color: #5a7a76; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/"><img src="/images/logo.png" alt="עופרים"></a>
+  <a class="back" href="/">← חזרה לדף הבית</a>
+</nav>
+
+<div class="page">
+
+  <div class="doc-header">
+    <p class="label">מסמך משפטי</p>
+    <h1>מדיניות פרטיות</h1>
+    <p class="updated">עודכן לאחרונה: יוני 2026</p>
+  </div>
+
+  <p style="font-size:.92rem;line-height:1.8;color:#5a4a32;margin-bottom:32px;">
+    פרטיותך חשובה לנו ביותר. מדיניות פרטיות זו מסבירה כיצד OFARIM אוספת, משתמשת ומגינה על המידע האישי שלך בעת השימוש בפלטפורמת הרשמת האירועים שלנו.
+  </p>
+
+  <!-- 1 -->
+  <div class="section">
+    <h2><span class="num">1.</span> המידע שאנו אוספים</h2>
+    <p><strong>זהות ופרטי קשר:</strong> בעת ההרשמה, אנו אוספים את שמך המלא וכתובת הדוא"ל שלך.</p>
+    <p><strong>נתוני אירועים:</strong> אנו שומרים רישום של הרשמות לאירועים, סטטוס השתתפות, והיסטוריית רשימות המתנה.</p>
+    <p><strong>נתונים טכניים:</strong> אנו אוספים נתוני אינטראקציה בסיסיים, כתובות IP וסוגי דפדפנים הנחוצים לאבטחה, מניעת בוטים ותפקוד תקין של הפלטפורמה.</p>
+  </div>
+
+  <!-- 2 -->
+  <div class="section">
+    <h2><span class="num">2.</span> כיצד אנו משתמשים במידע</h2>
+    <p><strong>אימות זהות:</strong> אנו משתמשים בכתובת הדוא"ל שלך אך ורק לשליחת סיסמאות חד-פעמיות (OTP) לצורך כניסה מאובטחת. אינו משתמשים בסיסמאות.</p>
+    <p><strong>ניהול אירועים:</strong> לצורך שמירת מקומך, שליחת תזכורות לאירועים, והודעה במקרה שמקום ברשימת ההמתנה מתפנה.</p>
+    <p><strong>פיוס תשלומים:</strong> לצורך התאמת ההרשמה שלך עם תשלומים חיצוניים (כגון העברות Bit) שבוצעו למארגן האירוע.</p>
+  </div>
+
+  <!-- 3 -->
+  <div class="section">
+    <h2><span class="num">3.</span> עיבוד תשלומים</h2>
+    <div class="no-payment">
+      <strong>OFARIM אינה אוספת, מעבדת או שומרת מספרי כרטיסי אשראי, פרטי בנק או נתונים פיננסיים.</strong> כל התשלומים מבוצעים על ידך ידנית דרך אפליקציות צד-שלישי חיצוניות (כגון Bit). אנו רושמים רק את סטטוס התשלום (ממתין/מאושר) במערכת שלנו.
+    </div>
+  </div>
+
+  <!-- 4 -->
+  <div class="section">
+    <h2><span class="num">4.</span> ספקי שירות צד שלישי</h2>
+    <p>אנו משתמשים בתשתית ארגונית מהימנה להפעלת הפלטפורמה בצורה מאובטחת. המידע שלך עשוי להיות מעובד על ידי:</p>
+
+    <div class="provider-card">
+      <span class="tag">תשתית ואבטחה</span>
+      <h3>Cloudflare</h3>
+      <p>
+        הפלטפורמה שלנו מתארחת ברשת ה-Edge של Cloudflare. אנו משתמשים ב-<strong>Cloudflare Turnstile</strong> לאימות משתמשים אנושיים ומניעת בוטים זדוניים. Turnstile מעבד נתונים טכניים (כגון כתובות IP ומאפייני דפדפן) אך ורק לצורך אימות אבטחה.
+      </p>
+    </div>
+
+    <div class="provider-card">
+      <span class="tag">משלוח דוא"ל</span>
+      <h3>Brevo</h3>
+      <p>
+        אנו משתמשים ב-Brevo למשלוח קודי OTP לכניסה והתראות אירועים. כתובת הדוא"ל שלך משותפת עם Brevo אך ורק לצורך משלוח דוא"ל טרנסקציונלי.
+      </p>
+    </div>
+  </div>
+
+  <!-- 5 -->
+  <div class="section">
+    <h2><span class="num">5.</span> אבטחת מידע</h2>
+    <p>אנו מיישמים אמצעי אבטחה קפדניים להגנה על המידע שלך:</p>
+    <ul class="rights-list" style="margin-top:8px;">
+      <li><div class="dot"></div><span>אימות מבוצע באמצעות קודי OTP מוצפנים ומוגבלי-זמן בלבד.</span></li>
+      <li><div class="dot"></div><span>גישה למסד הנתונים מבוקרת בהחמרה.</span></li>
+      <li><div class="dot"></div><span>נקודות קצה אדמיניסטרטיביות דורשות אימות JWT חתום.</span></li>
+      <li><div class="dot"></div><span>אין אחסון של סיסמאות — הפלטפורמה פועלת ללא סיסמאות לחלוטין.</span></li>
+    </ul>
+  </div>
+
+  <!-- 6 -->
+  <div class="section">
+    <h2><span class="num">6.</span> הזכויות שלך</h2>
+    <p>בהתאם לחוקי הפרטיות החלים, יש לך את הזכות:</p>
+    <ul class="rights-list" style="margin-top:8px;">
+      <li><div class="dot"></div><span>לבקש עותק של המידע האישי שאנו מחזיקים עליך.</span></li>
+      <li><div class="dot"></div><span>לבקש תיקון של מידע לא מדויק.</span></li>
+      <li><div class="dot"></div><span>לבקש מחיקת חשבונך ומידע אישי (בכפוף לחובות משפטיות בנוגע לשמירת רישומים פיננסיים).</span></li>
+    </ul>
+    <div class="info-box" style="margin-top:16px;">
+      לממש זכויות אלה, אנא צור איתנו קשר בכתובת הדוא"ל של הפלטפורמה.
+    </div>
+  </div>
+
+  <div class="other-doc">
+    <p>לתנאי השימוש המלאים בפלטפורמה</p>
+    <a href="/terms">קרא את התקנון ותנאי השימוש ←</a>
+  </div>
+
+</div>
+
+<footer>עופרים &copy; 2026<br><span style="font-size:10px;color:#c0af90;">נבנה על ידי High Standard Solution</span></footer>
+
+</body>
+</html>

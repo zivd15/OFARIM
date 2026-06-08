@@ -3,168 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ofarim — האזור שלי</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#152020">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<title>עופרים — האזור שלי</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --dark:      #152020;
+    --teal:      #4E7772;
+    --mint:      #A0CCC1;
+    --gold:      #A09850;
+    --sage:      #7A9D78;
+    --rose:      #D4878A;
+    --purple:    #9A77B8;
+    --bg:        #F4F7F6;
+    --border:    rgba(78,119,114,0.18);
+    --text:      #152020;
+    --text-muted:#5a7a76;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Heebo', sans-serif;
+    font-family: 'Noto Sans Hebrew', sans-serif;
     min-height: 100vh;
-    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
-    background-attachment: fixed;
-    color: #5a4a32;
+    background: var(--bg);
+    color: var(--text);
   }
+
+  /* Header */
   .header {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(168,143,100,0.2);
-    padding: 14px 20px;
+    background: var(--dark);
+    padding: 13px 20px;
     display: flex; justify-content: space-between; align-items: center;
     position: sticky; top: 0; z-index: 10;
   }
-  .header-right { display: flex; align-items: center; gap: 16px; }
-  .header a {
-    text-decoration: none; color: #5a4a32;
-    font-weight: 700; font-size: 1.2rem;
-  }
-  .header-links { display: flex; gap: 12px; align-items: center; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .header-links { display: flex; gap: 8px; align-items: center; }
   .header-links a {
-    font-size: 0.85rem; font-weight: 400;
-    color: #8b7a5e; text-decoration: none;
-    padding: 6px 12px; border-radius: 8px;
-    transition: all 0.2s;
+    font-size: 0.82rem; font-weight: 400;
+    color: var(--mint); text-decoration: none;
+    padding: 5px 11px; border-radius: 7px;
+    transition: all 0.2s; border: 1px solid transparent;
   }
-  .header-links a:hover { background: rgba(90,74,50,0.08); color: #5a4a32; }
+  .header-links a:hover { background: rgba(160,204,193,0.12); border-color: rgba(160,204,193,0.25); }
+  .greeting-chip {
+    font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 400;
+  }
   .btn-logout {
-    padding: 6px 14px; border-radius: 8px;
-    border: 1px solid rgba(168,143,100,0.3);
-    background: transparent; color: #8b7a5e;
-    font-family: inherit; font-size: 0.82rem;
+    padding: 5px 13px; border-radius: 7px;
+    border: 1px solid rgba(160,204,193,0.3);
+    background: transparent; color: var(--mint);
+    font-family: inherit; font-size: 0.8rem;
     cursor: pointer; transition: all 0.2s;
   }
-  .btn-logout:hover { background: rgba(231,76,60,0.08); color: #e74c3c; border-color: rgba(231,76,60,0.3); }
+  .btn-logout:hover { background: rgba(212,135,138,0.15); color: var(--rose); border-color: rgba(212,135,138,0.3); }
 
-  .container { max-width: 700px; margin: 0 auto; padding: 24px 20px; }
+  .container { max-width: 700px; margin: 0 auto; padding: 28px 20px; }
 
-  .welcome {
-    font-size: 1.3rem; font-weight: 700;
-    margin-bottom: 4px;
-  }
-  .welcome-sub {
-    font-size: 0.9rem; color: #8b7a5e;
-    margin-bottom: 24px;
-  }
+  /* Welcome */
+  .welcome     { font-size: 1.3rem; font-weight: 700; margin-bottom: 3px; }
+  .welcome-sub { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 26px; }
 
+  /* Section title */
   .section-title {
-    font-size: 1.1rem; font-weight: 700;
-    margin-bottom: 14px;
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--teal);
+    margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--mint);
     display: flex; align-items: center; gap: 8px;
   }
   .badge-count {
-    background: #5a4a32; color: #fff;
-    font-size: 0.72rem; font-weight: 700;
-    padding: 2px 8px; border-radius: 10px;
+    background: var(--teal); color: #fff;
+    font-size: 0.68rem; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px; letter-spacing: 0;
   }
 
-  /* Registration status badges */
+  /* Status badges */
   .status-badge {
-    display: inline-block; font-size: 0.72rem; font-weight: 700;
-    padding: 3px 10px; border-radius: 999px; white-space: nowrap;
-    flex-shrink: 0;
+    display: inline-block; font-size: 0.7rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0;
   }
-  .status-confirmed  { background: #d1f4e0; color: #15803d; }
-  .status-pending    { background: #fdecc8; color: #b45309; }
-  .status-waitlisted { background: #e2e8f0; color: #475569; }
+  .status-confirmed  { background: rgba(122,157,120,0.15); color: #3a6e38; border: 1px solid rgba(122,157,120,0.3); }
+  .status-pending    { background: rgba(160,152,80,0.12);  color: #7a6e20; border: 1px solid rgba(160,152,80,0.25); }
+  .status-waitlisted { background: rgba(151,119,184,0.12); color: #6a4e9a; border: 1px solid rgba(151,119,184,0.25); }
 
+  /* Event card */
   .event-card {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(168,143,100,0.2);
+    background: #fff;
+    border: 1px solid var(--border);
     border-radius: 14px;
     padding: 18px 20px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     transition: all 0.2s;
   }
-  .event-card:hover {
-    border-color: rgba(168,143,100,0.4);
-    box-shadow: 0 4px 16px rgba(120,100,60,0.1);
-  }
-  .event-card.past { opacity: 0.6; }
+  .event-card:hover { border-color: var(--mint); box-shadow: 0 4px 16px rgba(78,119,114,0.1); }
+  .event-card.past { opacity: 0.55; }
 
-  .event-header {
-    display: flex; align-items: flex-start; gap: 12px;
-    margin-bottom: 8px;
-  }
-  .event-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    flex-shrink: 0; margin-top: 5px;
-  }
-  .event-title { font-weight: 700; font-size: 1rem; flex: 1; }
+  .event-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
+  .event-title { font-weight: 700; font-size: 0.97rem; flex: 1; color: var(--dark); }
   .event-meta {
-    font-size: 0.82rem; color: #8b7a5e;
-    display: flex; flex-wrap: wrap; gap: 12px;
-    margin-bottom: 10px; padding-right: 24px;
+    font-size: 0.8rem; color: var(--text-muted);
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 12px; padding-right: 22px;
   }
-  .event-actions {
-    display: flex; gap: 10px; padding-right: 24px;
+  .event-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-right: 22px; }
+
+  .btn-calendar, .btn-view, .btn-cancel {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 16px; height: 44px; border-radius: 10px;
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all 200ms ease;
+    white-space: nowrap;
   }
   .btn-calendar {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px;
-    background: #5a4a32; color: #fff;
-    text-decoration: none; font-size: 0.82rem;
-    font-weight: 600; transition: opacity 0.2s;
+    background: var(--teal); color: #fff;
+    text-decoration: none; border: none;
   }
-  .btn-calendar:hover { opacity: 0.85; }
+  .btn-calendar:hover { background: var(--dark); }
   .btn-view {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 8px 16px; border-radius: 8px;
-    background: transparent; color: #5a4a32;
-    border: 1px solid rgba(168,143,100,0.3);
-    text-decoration: none; font-size: 0.82rem;
-    font-weight: 600; transition: all 0.2s;
+    background: transparent; color: var(--teal);
+    border: 1px solid var(--border); text-decoration: none;
   }
-  .btn-view:hover { background: rgba(90,74,50,0.06); }
+  .btn-view:hover { background: rgba(78,119,114,0.07); border-color: var(--mint); }
+  .btn-cancel {
+    background: transparent; color: var(--rose);
+    border: 1px solid rgba(212,135,138,0.25);
+  }
+  .btn-cancel:hover { background: rgba(212,135,138,0.08); border-color: rgba(212,135,138,0.5); }
+  .btn-cancel:disabled { opacity: 0.5; cursor: default; }
+  .btn-calendar svg, .btn-view svg, .btn-cancel svg { width: 15px; height: 15px; flex-shrink: 0; }
 
-  .empty-state {
-    text-align: center; padding: 40px 20px;
-    color: #8b7a5e;
-  }
-  .empty-state p { margin-bottom: 16px; font-size: 0.95rem; }
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-muted); }
+  .empty-state p { margin-bottom: 16px; font-size: 0.93rem; }
   .empty-state a {
     display: inline-block; padding: 10px 24px;
-    background: #5a4a32; color: #fff;
-    text-decoration: none; border-radius: 10px;
-    font-weight: 600;
+    background: var(--teal); color: #fff;
+    text-decoration: none; border-radius: 10px; font-weight: 600;
   }
+  .empty-state a:hover { background: var(--dark); }
 
   .past-toggle {
-    cursor: pointer; font-size: 0.9rem;
-    color: #8b7a5e; margin-top: 24px;
-    display: flex; align-items: center; gap: 6px;
-    user-select: none;
+    cursor: pointer; font-size: 0.87rem; color: var(--text-muted);
+    margin-top: 24px; display: flex; align-items: center; gap: 6px; user-select: none;
   }
-  .past-toggle:hover { color: #5a4a32; }
+  .past-toggle:hover { color: var(--teal); }
   .chevron { transition: transform 0.2s; display: inline-block; }
   .chevron.open { transform: rotate(90deg); }
 
-  .loading {
-    text-align: center; padding: 40px;
-    color: #8b7a5e; font-size: 0.9rem;
-  }
+  .loading { text-align: center; padding: 48px; color: var(--text-muted); font-size: 0.9rem; }
+
+  /* Touch targets & accessibility */
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+  *:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; border-radius: 6px; }
 
   footer {
-    text-align: center; padding: 24px;
-    font-size: 12px; color: #b0a080;
+    text-align: center; padding: 28px 16px;
+    font-size: 11px; color: var(--text-muted); line-height: 1.8;
   }
+  .built-by { font-size: 10px; color: var(--mint); margin-top: 2px; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <div class="header-right">
-    <a href="/">עופרים</a>
-    <span id="userName" style="font-size:0.85rem;color:#8b7a5e;font-weight:400;"></span>
+    <a href="/"><img src="/images/logo.png" alt="עופרים" style="height:38px;width:auto;border-radius:8px;"></a>
+    <span class="greeting-chip" id="userName"></span>
   </div>
   <div class="header-links">
     <a href="/calendar">לוח אירועים</a>
@@ -174,12 +179,13 @@
 </div>
 
 <div class="container">
-  <div id="content">
-    <div class="loading">טוען...</div>
-  </div>
+  <div id="content"><div class="loading">טוען...</div></div>
 </div>
 
-<footer>עופרים &copy; 2025 — גדולים יותר, חזקים יותר, חכמים יותר וטובי לב</footer>
+<footer>
+  עופרים &copy; 2026
+  <div class="built-by">נבנה על ידי High Standard Solution</div>
+</footer>
 
 <script>
   const token = localStorage.getItem('ofarim_user_token');
@@ -188,149 +194,108 @@
   let userData = null;
   try { userData = JSON.parse(localStorage.getItem('ofarim_user')); } catch(e) {}
 
-  function setUserName(name) {
-    document.getElementById('userName').textContent = 'שלום, ' + name;
-  }
-
+  function setUserName(name) { document.getElementById('userName').textContent = 'שלום, ' + name; }
   if (userData?.name) setUserName(userData.name);
 
-  function logout() {
-    localStorage.removeItem('ofarim_user_token');
-    localStorage.removeItem('ofarim_user');
-    window.location.href = '/';
-  }
+  function logout() { localStorage.removeItem('ofarim_user_token'); localStorage.removeItem('ofarim_user'); window.location.href = '/'; }
 
   async function loadMyEvents() {
     try {
-      // Fetch fresh user data and events in parallel
       const [meResp, evResp] = await Promise.all([
-        fetch('/api/user-auth/me', { headers: { 'Authorization': 'Bearer ' + token } }),
-        fetch('/api/events/my-events', { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch('/api/user-auth/me',        { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch('/api/events/my-events',    { headers: { 'Authorization': 'Bearer ' + token } })
       ]);
-
-      if (meResp.ok) {
-        const me = await meResp.json();
-        localStorage.setItem('ofarim_user', JSON.stringify(me));
-        userData = me;
-        setUserName(me.name);
-      }
-
-      if (evResp.status === 401 || evResp.status === 403) {
-        localStorage.removeItem('ofarim_user_token');
-        window.location.href = '/login';
-        return;
-      }
-      const events = await evResp.json();
-      renderEvents(events);
-    } catch (e) {
-      document.getElementById('content').innerHTML =
-        '<div class="empty-state"><p>שגיאה בטעינת האירועים</p></div>';
-    }
+      if (meResp.ok) { const me = await meResp.json(); localStorage.setItem('ofarim_user', JSON.stringify(me)); userData = me; setUserName(me.name); }
+      if (evResp.status === 401 || evResp.status === 403) { localStorage.removeItem('ofarim_user_token'); window.location.href = '/login'; return; }
+      renderEvents(await evResp.json());
+    } catch(e) { document.getElementById('content').innerHTML = '<div class="empty-state"><p>שגיאה בטעינת האירועים</p></div>'; }
   }
 
   function renderEvents(events) {
     const container = document.getElementById('content');
-    const today = new Date().toISOString().split('T')[0];
-
-    const upcoming = events.filter(e => e.date >= today);
-    const past = events.filter(e => e.date < today);
+    const today     = new Date().toISOString().split('T')[0];
+    const upcoming  = events.filter(e => e.date >= today);
+    const past      = events.filter(e => e.date < today);
 
     if (events.length === 0) {
       container.innerHTML = `
-        <div class="welcome">שלום ${userData ? userData.name : ''}</div>
-        <div class="welcome-sub">כאן תוכלי לראות את האירועים שנרשמת אליהם</div>
-        <div class="empty-state">
-          <p>עדיין לא נרשמת לאירועים</p>
-          <a href="/calendar">לצפייה בלוח האירועים</a>
-        </div>`;
+        <div class="welcome">שלום ${escHtml(userData?.name || '')}</div>
+        <div class="welcome-sub">כאן תוכלו לראות את האירועים שנרשמתם אליהם</div>
+        <div class="empty-state"><p>עדיין לא נרשמת לאירועים</p><a href="/calendar">לצפייה בלוח האירועים</a></div>`;
       return;
     }
 
-    let html = `
-      <div class="welcome">שלום ${userData ? userData.name : ''}</div>
-      <div class="welcome-sub">כאן תוכלי לראות את האירועים שנרשמת אליהם</div>`;
+    let html = `<div class="welcome">שלום ${escHtml(userData?.name || '')}</div><div class="welcome-sub">כאן תוכלו לראות את האירועים שנרשמתם אליהם</div>`;
 
     if (upcoming.length > 0) {
       html += `<div class="section-title">אירועים קרובים <span class="badge-count">${upcoming.length}</span></div>`;
-      upcoming.sort((a, b) => a.date.localeCompare(b.date));
-      upcoming.forEach(ev => { html += renderCard(ev, false); });
+      upcoming.sort((a,b) => a.date.localeCompare(b.date)).forEach(ev => { html += renderCard(ev, false); });
     }
-
     if (past.length > 0) {
-      html += `
-        <div class="past-toggle" onclick="togglePast()">
-          <span class="chevron" id="pastChevron">◀</span>
-          אירועים שעברו (${past.length})
-        </div>
-        <div id="pastEvents" style="display:none;margin-top:12px;">`;
+      html += `<div class="past-toggle" onclick="togglePast()"><span class="chevron" id="pastChevron">◀</span> אירועים שעברו (${past.length})</div><div id="pastEvents" style="display:none;margin-top:10px;">`;
       past.forEach(ev => { html += renderCard(ev, true); });
       html += '</div>';
     }
-
     container.innerHTML = html;
   }
 
-  // User-friendly Hebrew date. Build from parts to avoid UTC parse shifting the day.
   const heDateFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
-  function formatDate(dateStr) {
-    const [y, m, d] = (dateStr || '').split('-').map(Number);
-    if (!y) return dateStr || '';
-    return heDateFmt.format(new Date(y, m - 1, d));
-  }
+  function formatDate(dateStr) { const [y,m,d] = (dateStr||'').split('-').map(Number); if (!y) return dateStr||''; return heDateFmt.format(new Date(y,m-1,d)); }
 
-  const STATUS_BADGES = {
-    confirmed:  ['status-confirmed', 'מאושר'],
-    pending:    ['status-pending', 'ממתין לתשלום'],
-    waitlisted: ['status-waitlisted', 'ברשימת המתנה'],
+  const STATUS_BADGES = { confirmed:['status-confirmed','מאושר'], pending:['status-pending','ממתין לתשלום'], waitlisted:['status-waitlisted','ברשימת המתנה'] };
+  function statusBadge(s) { const b = STATUS_BADGES[s]; return b ? `<span class="status-badge ${b[0]}">${b[1]}</span>` : ''; }
+
+  const SVG = {
+    cal:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+    time: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    loc:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+    list: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+    x:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
   };
-  function statusBadge(status) {
-    const b = STATUS_BADGES[status];
-    return b ? `<span class="status-badge ${b[0]}">${b[1]}</span>` : '';
-  }
 
   function renderCard(ev, isPast) {
     const meta = [];
-    meta.push('📅 ' + escHtml(formatDate(ev.date)));
-    if (ev.time) meta.push('🕐 ' + escHtml(ev.time) + (ev.end_time ? ' - ' + escHtml(ev.end_time) : ''));
-    if (ev.location) meta.push('📍 ' + escHtml(ev.location));
-
+    meta.push(`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;flex-shrink:0;">${SVG.cal}</span>${escHtml(formatDate(ev.date))}</span>`);
+    if (ev.time)     meta.push(`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;flex-shrink:0;">${SVG.time}</span>${escHtml(ev.time)}${ev.end_time?' - '+escHtml(ev.end_time):''}</span>`);
+    if (ev.location) meta.push(`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;flex-shrink:0;">${SVG.loc}</span>${escHtml(ev.location)}</span>`);
+    const canCancel = !isPast;
     return `
-      <div class="event-card${isPast ? ' past' : ''}">
+      <div class="event-card${isPast?' past':''}" id="card-${ev.id}">
         <div class="event-header">
-          <div class="event-dot" style="background:${ev.color || '#3498db'}"></div>
+          <div class="event-dot" style="background:${ev.color||'#4E7772'}"></div>
           <div class="event-title">${escHtml(ev.title)}</div>
           ${statusBadge(ev.registration_status)}
         </div>
-        <div class="event-meta">${meta.map(m => '<span>' + m + '</span>').join('')}</div>
+        <div class="event-meta">${meta.join('')}</div>
         <div class="event-actions">
-          <a class="btn-calendar" href="/api/events/${ev.id}/calendar.ics" download>
-            📅 הוספה ליומן
-          </a>
-          <a class="btn-view" href="/calendar">
-            צפייה בלוח
-          </a>
+          <a class="btn-calendar" href="/api/events/${ev.id}/calendar.ics" download>${SVG.cal} הוספה ליומן</a>
+          <a class="btn-view" href="/calendar">${SVG.list} צפייה בלוח</a>
+          ${canCancel?`<button class="btn-cancel" id="cancel-btn-${ev.id}" onclick="cancelRegistration(${ev.id},this)">${SVG.x} ביטול הרשמה</button>`:''}
         </div>
       </div>`;
   }
 
-  function togglePast() {
-    const el = document.getElementById('pastEvents');
-    const chevron = document.getElementById('pastChevron');
-    if (el.style.display === 'none') {
-      el.style.display = 'block';
-      chevron.classList.add('open');
-    } else {
-      el.style.display = 'none';
-      chevron.classList.remove('open');
-    }
+  async function cancelRegistration(eventId, btn) {
+    if (!confirm('האם אתה בטוח שברצונך לבטל את ההרשמה לאירוע זה?')) return;
+    btn.disabled = true; btn.textContent = 'מבטל...';
+    try {
+      const resp = await fetch(`/api/events/${eventId}/cancel-registration`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || 'שגיאה בביטול ההרשמה'); btn.disabled = false; btn.textContent = '✕ ביטול הרשמה'; return; }
+      const card = document.getElementById('card-' + eventId);
+      if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0'; setTimeout(() => { card.remove(); loadMyEvents(); }, 350); }
+    } catch(e) { alert('שגיאת שרת'); btn.disabled = false; btn.textContent = '✕ ביטול הרשמה'; }
   }
 
-  function escHtml(s) {
-    if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function togglePast() {
+    const el = document.getElementById('pastEvents'); const c = document.getElementById('pastChevron');
+    if (el.style.display === 'none') { el.style.display = 'block'; c.classList.add('open'); } else { el.style.display = 'none'; c.classList.remove('open'); }
   }
+
+  function escHtml(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   loadMyEvents();
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 </script>
 </body>
 </html>

@@ -1,27 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ofarim — Events Calendar</title>
+<meta name="theme-color" content="#5a4a32">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<title>Ofarim — לוח אירועים</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script>
 tailwind.config = {
   theme: { extend: {
-    fontFamily: { sans: ['Open Sans', 'sans-serif'] },
-    colors: { primary: '#3498db', secondary: '#f1c40f', bgLight: '#f9f9f9', textDark: '#333' }
+    fontFamily: { sans: ['Noto Sans Hebrew', 'sans-serif'] },
+    colors: { primary: '#4E7772', secondary: '#A09850', bgLight: '#F4F7F6', textDark: '#152020', tealLight: '#A0CCC1', sage: '#7A9D78', rose: '#D4878A', purple: '#9A77B8' }
   }}
 }
 </script>
 <style>
   .fade-in { animation: fadeIn 0.2s ease-in; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-  .spinner { border: 3px solid #e5e7eb; border-top: 3px solid #3498db; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
+  .spinner { border: 3px solid #dde8e7; border-top: 3px solid #4E7772; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  body { background: #F4F7F6 !important; }
+  header { background: #152020 !important; border-color: rgba(160,204,193,0.15) !important; }
+  header a, header span, header button { color: #A0CCC1 !important; }
+  header button:hover { color: #D4878A !important; }
 </style>
 </head>
 <body class="bg-bgLight font-sans text-textDark">
@@ -70,19 +77,19 @@ function PriceBadge({ price, className = '' }) {
 
 // ─── Month Navigator ─────────────────────────────────────
 function MonthNavigator({ month, year, onPrev, onNext }) {
-  const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const names = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   return (
     <div className="flex justify-between items-center mb-4">
-      <button onClick={onPrev} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">◀</button>
+      <button onClick={onPrev} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">▶</button>
       <h2 className="text-xl font-bold">{names[month]} {year}</h2>
-      <button onClick={onNext} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">▶</button>
+      <button onClick={onNext} className="p-2 px-4 hover:bg-gray-100 rounded-lg transition text-lg font-bold text-primary">◀</button>
     </div>
   );
 }
 
 // ─── Event Pill (on calendar day) ────────────────────────
 function EventPill({ event, onClick }) {
-  const spotsText = event.spots_left !== null ? `${event.participant_count}/${event.max_participants}` : `${event.participant_count} signed`;
+  const spotsText = event.spots_left !== null ? `${event.participant_count}/${event.max_participants}` : `${event.participant_count} רשומים`;
   return (
     <div onClick={(e) => { e.stopPropagation(); onClick(event); }}
       className="text-xs px-1.5 py-1 rounded cursor-pointer hover:opacity-80 transition mb-0.5"
@@ -95,10 +102,9 @@ function EventPill({ event, onClick }) {
 
 // ─── Day Grid ────────────────────────────────────────────
 function DayGrid({ month, year, events, onEventClick }) {
-  const daysOfWeek = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const daysOfWeek = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
   const firstDay = new Date(year, month, 1);
-  let startDay = firstDay.getDay() - 1;
-  if (startDay < 0) startDay = 6;
+  const startDay = firstDay.getDay(); // 0=Sunday, Sunday-first week
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
 
@@ -160,14 +166,14 @@ function EventModal({ event, onClose, onRegistered }) {
   async function handleRegister(e) {
     e.preventDefault();
     setError(''); setSuccess('');
-    if (!name.trim()) return setError('Name is required');
+    if (!name.trim()) return setError('שם הוא שדה חובה');
     setLoading(true);
     try {
       const data = await apiFetch(`/events/${event.id}/register`, {
         method: 'POST',
         body: JSON.stringify({ name, phone, email }),
       });
-      setSuccess(`Registered! ${data.spots_left !== null ? data.spots_left + ' spots remaining' : data.participant_count + ' total signed'}`);
+      setSuccess(`נרשמת בהצלחה! ${data.spots_left !== null ? 'נותרו ' + data.spots_left + ' מקומות' : data.participant_count + ' רשומים סה"כ'}`);
       setShowCalendarBtn(true);
       setName(''); setPhone(''); setEmail('');
       onRegistered();
@@ -205,13 +211,13 @@ function EventModal({ event, onClose, onRegistered }) {
           <div className="text-sm text-gray-500">
             {event.max_participants > 0 ? (
               <>
-                <div>of {event.max_participants} spots taken</div>
+                <div>מתוך {event.max_participants} מקומות</div>
                 <div className={isFull ? 'text-red-500 font-semibold' : 'text-green-600'}>
-                  {isFull ? 'Event is full' : `${event.spots_left} spots remaining`}
+                  {isFull ? 'האירוע מלא' : `נותרו ${event.spots_left} מקומות`}
                 </div>
               </>
             ) : (
-              <div>participants signed up</div>
+              <div>משתתפים רשומים</div>
             )}
           </div>
         </div>
@@ -219,7 +225,7 @@ function EventModal({ event, onClose, onRegistered }) {
         {/* Registration form */}
         {!isFull ? (
           <>
-            <h4 className="font-semibold text-sm mb-3">Sign Up for This Event</h4>
+            <h4 className="font-semibold text-sm mb-3">הרשמה לאירוע</h4>
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
             {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-3 text-sm">{success}</div>}
             {showCalendarBtn && (
@@ -230,21 +236,21 @@ function EventModal({ event, onClose, onRegistered }) {
               </a>
             )}
             <form onSubmit={handleRegister} className="space-y-3">
-              <input type="text" placeholder="Your Name *" value={name} onChange={e => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
-              <input type="tel" placeholder="Phone (optional)" value={phone} onChange={e => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
-              <input type="email" placeholder="Email (optional)" value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+              <input type="text" placeholder="שמך המלא *" value={name} onChange={e => setName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="rtl" />
+              <input type="tel" placeholder="טלפון (אופציונלי)" value={phone} onChange={e => setPhone(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" />
+              <input type="email" placeholder="אימייל (אופציונלי)" value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" />
               <button type="submit" disabled={loading}
                 className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
-                Sign Up
+                הרשמה
               </button>
             </form>
           </>
         ) : (
-          <div className="text-center py-4 text-gray-400">Registration is closed — event is full.</div>
+          <div className="text-center py-4 text-gray-400">ההרשמה סגורה — האירוע מלא.</div>
         )}
       </div>
     </div>
@@ -294,7 +300,9 @@ function App() {
     <div className="min-h-screen bg-bgLight">
       <header className="bg-white shadow-sm border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <a href="/" className="text-2xl font-bold text-primary hover:opacity-80 transition" style={{textDecoration:'none'}}>Ofarim</a>
+          <a href="/" className="hover:opacity-80 transition" style={{textDecoration:'none'}}>
+            <img src="/images/logo.png" alt="עופרים" style={{height:'48px',width:'auto'}} />
+          </a>
           <div className="flex items-center gap-4">
             {getUserToken() ? (
               <>
@@ -324,9 +332,9 @@ function App() {
 
         {/* Upcoming Events List */}
         <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-bold mb-4">Upcoming Events</h3>
+          <h3 className="text-lg font-bold mb-4">אירועים קרובים</h3>
           {events.length === 0 ? (
-            <p className="text-gray-400 text-sm">No events this month.</p>
+            <p className="text-gray-400 text-sm">אין אירועים החודש.</p>
           ) : (
             <div className="space-y-2">
               {events.sort((a,b) => a.date.localeCompare(b.date)).map(ev => (
@@ -343,10 +351,10 @@ function App() {
                       {ev.location && ` · ${ev.location}`}
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
+                  <div className="text-left flex-shrink-0">
                     <div className="text-sm font-bold text-primary">{ev.participant_count}</div>
                     <div className="text-xs text-gray-400">
-                      {ev.max_participants > 0 ? `/ ${ev.max_participants}` : 'signed'}
+                      {ev.max_participants > 0 ? `/ ${ev.max_participants}` : 'רשומים'}
                     </div>
                   </div>
                 </div>
@@ -357,9 +365,10 @@ function App() {
       </main>
 
       <footer className="text-center py-6 text-xs text-gray-400">
-        Ofarim &copy; {new Date().getFullYear()}
+        עופרים &copy; {new Date().getFullYear()}
         <span className="mx-2">·</span>
         <a href="/" className="hover:text-primary transition">דף הבית</a>
+        <div style={{fontSize:'10px',marginTop:'4px',color:'#c0af90'}}>נבנה על ידי High Standard Solution</div>
       </footer>
 
       {selectedEvent && (
@@ -373,5 +382,6 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});</script>
 </body>
 </html>

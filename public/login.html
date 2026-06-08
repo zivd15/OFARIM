@@ -3,138 +3,149 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ofarim — כניסה</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#152020">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/images/logo.png">
+<title>עופרים — כניסה</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
+  :root {
+    --dark:      #152020;
+    --teal:      #4E7772;
+    --mint:      #A0CCC1;
+    --gold:      #A09850;
+    --rose:      #D4878A;
+    --bg:        #F4F7F6;
+    --border:    rgba(78,119,114,0.2);
+    --text:      #152020;
+    --text-muted:#5a7a76;
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Heebo', sans-serif;
+    font-family: 'Noto Sans Hebrew', sans-serif;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d0 30%, #d4cbb8 100%);
-    color: #5a4a32;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    position: relative;
   }
-  .container {
-    width: 100%; max-width: 420px;
-    padding: 20px;
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(160,204,193,0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(78,119,114,0.10) 0%, transparent 55%);
+    pointer-events: none;
   }
-  .logo-link {
-    display: block; text-align: center; margin-bottom: 24px;
-    text-decoration: none; color: #5a4a32;
-  }
-  .logo-link img { width: 120px; border-radius: 14px; }
-  .logo-link h1 { font-size: 1.4rem; margin-top: 8px; }
+  .container { position: relative; z-index: 1; width: 100%; max-width: 420px; padding: 20px; }
+
+  .logo-link { display: block; text-align: center; margin-bottom: 24px; text-decoration: none; }
+  .logo-link img { width: 110px; border-radius: 14px; box-shadow: 0 4px 20px rgba(21,32,32,0.12); }
+  .logo-link h1 { font-size: 1.2rem; margin-top: 8px; color: var(--dark); font-weight: 700; }
 
   .card {
-    background: rgba(255,255,255,0.85);
+    background: rgba(255,255,255,0.88);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(168,143,100,0.2);
-    border-radius: 16px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
     padding: 32px 28px;
   }
-
-  .card-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
-  .step-hint { font-size: 0.9rem; color: #8b7a5e; margin-bottom: 20px; line-height: 1.5; }
-  .step-hint strong { color: #5a4a32; }
+  .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; color: var(--dark); }
+  .step-hint { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+  .step-hint strong { color: var(--dark); }
 
   .form-group { margin-bottom: 14px; }
-  .form-group label {
-    display: block; font-size: 0.85rem; font-weight: 600;
-    margin-bottom: 4px; color: #5a4a32;
-  }
+  .form-group label { display: block; font-size: 0.83rem; font-weight: 600; margin-bottom: 4px; color: var(--teal); }
   .form-group input {
-    width: 100%; padding: 12px 14px;
-    border: 1px solid rgba(168,143,100,0.3);
-    border-radius: 10px; font-size: 0.95rem;
+    width: 100%; padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px; font-size: 0.93rem;
     font-family: inherit; background: #fff;
-    color: #5a4a32;
+    color: var(--dark); transition: border-color 0.2s;
   }
-  .form-group input:focus {
-    outline: none; border-color: #5a4a32;
-  }
+  .form-group input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(78,119,114,0.1); }
 
-  .code-input {
-    letter-spacing: 0.5em; text-align: center;
-    font-size: 1.4rem !important; font-weight: 700;
-  }
+  .code-input { letter-spacing: 0.5em; text-align: center; font-size: 1.4rem !important; font-weight: 700; }
 
   .btn-submit {
     width: 100%; padding: 13px;
-    background: #5a4a32; color: #fff;
+    background: var(--dark); color: #fff;
     border: none; border-radius: 10px;
     font-size: 1rem; font-weight: 700;
     font-family: inherit; cursor: pointer;
-    margin-top: 8px; transition: opacity 0.2s;
+    margin-top: 8px; transition: background 0.2s, transform 0.1s;
   }
-  .btn-submit:hover { opacity: 0.9; }
+  .btn-submit:hover { background: var(--teal); }
+  .btn-submit:active { transform: scale(0.99); }
   .btn-submit:disabled { opacity: 0.5; cursor: default; }
 
   .link-btn {
     width: 100%; margin-top: 14px;
     background: none; border: none;
-    color: #8b7a5e; font-family: inherit;
-    font-size: 0.85rem; cursor: pointer;
+    color: var(--text-muted); font-family: inherit;
+    font-size: 0.84rem; cursor: pointer;
   }
-  .link-btn:hover { color: #5a4a32; }
+  .link-btn:hover { color: var(--teal); }
 
-  .msg {
-    padding: 10px 14px; border-radius: 8px;
-    font-size: 0.85rem; margin-bottom: 14px;
-    display: none;
-  }
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 0.84rem; margin-bottom: 14px; display: none; }
   .msg.show { display: block; }
-  .error-msg { background: rgba(231,76,60,0.1); color: #e74c3c; }
-  .info-msg { background: rgba(46,204,113,0.12); color: #27875a; }
+  .error-msg { background: rgba(212,135,138,0.12); color: #b84a50; border: 1px solid rgba(212,135,138,0.3); }
+  .info-msg  { background: rgba(122,157,120,0.12); color: #3d6b3a; border: 1px solid rgba(122,157,120,0.3); }
 
   .back-link {
-    display: block; text-align: center;
-    margin-top: 20px; font-size: 0.85rem;
-    color: #8b7a5e; text-decoration: none;
+    display: block; text-align: center; margin-top: 20px;
+    font-size: 0.84rem; color: var(--text-muted); text-decoration: none;
   }
-  .back-link:hover { color: #5a4a32; }
+  .back-link:hover { color: var(--teal); }
+
+  .consent {
+    text-align: center; font-size: 0.7rem; color: var(--text-muted);
+    margin-top: 12px; line-height: 1.6;
+  }
+  .consent a { color: var(--teal); font-weight: 600; text-decoration: underline; }
 
   footer {
     position: fixed; bottom: 0; width: 100%;
-    text-align: center; padding: 16px;
-    font-size: 12px; color: #b0a080;
+    text-align: center; padding: 14px;
+    font-size: 11px; color: var(--text-muted); opacity: 0.7;
+    line-height: 1.8;
   }
 </style>
 </head>
 <body>
-
 <div class="container">
   <a href="/" class="logo-link">
-    <img src="/images/logo.png" alt="Ofarim">
+    <img src="/images/logo.png" alt="עופרים">
     <h1>עופרים</h1>
   </a>
-
   <div class="card">
     <div class="msg error-msg" id="errorMsg"></div>
-    <div class="msg info-msg" id="infoMsg"></div>
+    <div class="msg info-msg"  id="infoMsg"></div>
 
-    <!-- Step 1: request a code -->
     <form id="emailForm" onsubmit="handleRequestOtp(event)">
       <div class="card-title">כניסה / הרשמה</div>
       <p class="step-hint">הזינו את כתובת האימייל שלכם ונשלח לכם קוד התחברות חד-פעמי. ללא סיסמה.</p>
       <div class="form-group">
-        <label>שם <span style="font-weight:400;color:#8b7a5e">(לכניסה ראשונה)</span></label>
+        <label>שם <span style="font-weight:400;color:var(--text-muted)">(לכניסה ראשונה)</span></label>
         <input type="text" id="name" placeholder="השם שלך" autocomplete="name">
       </div>
       <div class="form-group">
         <label>אימייל</label>
         <input type="email" id="email" placeholder="your@email.com" required dir="ltr" autocomplete="email">
       </div>
-      <!-- Cloudflare Turnstile anti-bot widget. Dummy site key (always passes) for local dev;
-           replace 1x00000000000000000000AA with the real site key in production. -->
+      <div class="form-group">
+        <label>טלפון <span style="font-weight:400;color:var(--text-muted)">(אופציונלי)</span></label>
+        <input type="tel" id="phone" placeholder="05X-XXXXXXX" dir="ltr" autocomplete="tel">
+      </div>
       <div class="cf-turnstile" data-sitekey="1x00000000000000000000AA" style="margin-bottom:14px;"></div>
       <button type="submit" class="btn-submit" id="sendBtn">שליחת קוד</button>
+      <p class="consent">
+        בהמשך, אתה מסכים ל<a href="/terms" target="_blank">תקנון ותנאי שימוש</a>
+        ול<a href="/privacy" target="_blank">מדיניות הפרטיות</a> שלנו.
+      </p>
     </form>
 
-    <!-- Step 2: verify the code -->
     <form id="otpForm" style="display:none" onsubmit="handleVerifyOtp(event)">
       <div class="card-title">הזנת קוד</div>
       <p class="step-hint">שלחנו קוד בן 6 ספרות אל <strong id="emailEcho"></strong>. הקוד תקף ל-10 דקות.</p>
@@ -147,99 +158,62 @@
       <button type="button" class="link-btn" onclick="backToEmail()">← שינוי אימייל / שליחה חוזרת</button>
     </form>
   </div>
-
   <a href="/" class="back-link">← חזרה לדף הבית</a>
 </div>
 
-<footer>עופרים &copy; 2025 — גדולים יותר, חזקים יותר, חכמים יותר וטובי לב</footer>
+<footer>עופרים &copy; 2026<br><span style="font-size:10px;color:var(--mint);">נבנה על ידי High Standard Solution</span></footer>
 
 <script>
-  // If already logged in, go straight to the dashboard.
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
   if (localStorage.getItem('ofarim_user_token')) {
-    fetch('/api/user-auth/me', {
-      headers: { 'Authorization': 'Bearer ' + localStorage.getItem('ofarim_user_token') }
-    }).then(r => { if (r.ok) window.location.href = '/dashboard'; });
+    fetch('/api/user-auth/me', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('ofarim_user_token') } })
+      .then(r => { if (r.ok) window.location.href = '/dashboard'; });
   }
 
-  function showError(msg) {
-    const el = document.getElementById('errorMsg');
-    el.textContent = msg; el.className = 'msg error-msg show';
-    document.getElementById('infoMsg').className = 'msg info-msg';
-  }
-  function showInfo(msg) {
-    const el = document.getElementById('infoMsg');
-    el.textContent = msg; el.className = 'msg info-msg show';
-  }
-  function clearMsgs() {
-    document.getElementById('errorMsg').className = 'msg error-msg';
-    document.getElementById('infoMsg').className = 'msg info-msg';
-  }
-
-  function resetTurnstile() {
-    if (window.turnstile) { try { turnstile.reset(); } catch (e) {} }
-  }
+  function showError(msg) { const el = document.getElementById('errorMsg'); el.textContent = msg; el.className = 'msg error-msg show'; document.getElementById('infoMsg').className = 'msg info-msg'; }
+  function showInfo(msg)  { const el = document.getElementById('infoMsg');  el.textContent = msg; el.className = 'msg info-msg show'; }
+  function clearMsgs()    { document.getElementById('errorMsg').className = 'msg error-msg'; document.getElementById('infoMsg').className = 'msg info-msg'; }
+  function resetTurnstile() { if (window.turnstile) { try { turnstile.reset(); } catch(e) {} } }
 
   async function handleRequestOtp(e) {
-    e.preventDefault();
-    clearMsgs();
+    e.preventDefault(); clearMsgs();
     const email = document.getElementById('email').value.trim();
-    const name = document.getElementById('name').value.trim();
-    // The Turnstile widget injects a hidden <input name="cf-turnstile-response">.
+    const name  = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
     const tokenEl = document.querySelector('#emailForm [name="cf-turnstile-response"]');
     const turnstileToken = tokenEl ? tokenEl.value : '';
     if (!turnstileToken) { showError('יש להשלים את אימות "אינני רובוט".'); return; }
-
     const btn = document.getElementById('sendBtn');
     btn.disabled = true; btn.textContent = 'שולח...';
     try {
-      const resp = await fetch('/api/user-auth/request-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, 'cf-turnstile-response': turnstileToken })
-      });
+      const resp = await fetch('/api/user-auth/request-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, name, phone, 'cf-turnstile-response': turnstileToken }) });
       const data = await resp.json();
-      if (!resp.ok) {
-        showError(data.error || 'שגיאה בשליחת הקוד');
-        resetTurnstile();   // tokens are single-use; get a fresh one before retry
-        return;
-      }
-      // Transition to step 2.
+      if (!resp.ok) { showError(data.error || 'שגיאה בשליחת הקוד'); resetTurnstile(); return; }
       document.getElementById('emailEcho').textContent = email;
       document.getElementById('emailForm').style.display = 'none';
       document.getElementById('otpForm').style.display = '';
       showInfo('הקוד נשלח. בדקו את תיבת האימייל שלכם.');
       document.getElementById('code').focus();
-    } catch (err) {
-      showError('שגיאת שרת: ' + err.message);
-      resetTurnstile();
-    } finally {
-      btn.disabled = false; btn.textContent = 'שליחת קוד';
-    }
+    } catch(err) { showError('שגיאת שרת: ' + err.message); resetTurnstile(); }
+    finally { btn.disabled = false; btn.textContent = 'שליחת קוד'; }
   }
 
   async function handleVerifyOtp(e) {
-    e.preventDefault();
-    clearMsgs();
+    e.preventDefault(); clearMsgs();
     const email = document.getElementById('email').value.trim();
-    const code = document.getElementById('code').value.trim();
-    const btn = document.getElementById('verifyBtn');
+    const code  = document.getElementById('code').value.trim();
+    const btn   = document.getElementById('verifyBtn');
     btn.disabled = true; btn.textContent = 'מאמת...';
     try {
-      const resp = await fetch('/api/user-auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code })
-      });
+      const resp = await fetch('/api/user-auth/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
       const data = await resp.json();
       if (!resp.ok) { showError(data.error || 'קוד שגוי או שפג תוקפו'); return; }
       localStorage.setItem('ofarim_user_token', data.token);
       localStorage.setItem('ofarim_user', JSON.stringify(data.user));
       window.location.href = '/dashboard';
-    } catch (err) {
-      showError('שגיאת שרת: ' + err.message);
-    } finally {
-      btn.disabled = false; btn.textContent = 'אימות וכניסה';
-    }
+    } catch(err) { showError('שגיאת שרת: ' + err.message); }
+    finally { btn.disabled = false; btn.textContent = 'אימות וכניסה'; }
   }
 
   function backToEmail() {
@@ -247,7 +221,7 @@
     document.getElementById('otpForm').style.display = 'none';
     document.getElementById('emailForm').style.display = '';
     document.getElementById('code').value = '';
-    resetTurnstile();   // need a fresh token to request another code
+    resetTurnstile();
   }
 </script>
 </body>

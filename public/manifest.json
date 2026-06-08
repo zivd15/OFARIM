@@ -1,0 +1,20 @@
+{
+  "name": "עופרים — ניהול אירועים",
+  "short_name": "עופרים",
+  "description": "פלטפורמת הרשמה לאירועים",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f0e8",
+  "theme_color": "#5a4a32",
+  "lang": "he",
+  "dir": "rtl",
+  "icons": [
+    { "src": "/images/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/images/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "לוח אירועים", "url": "/calendar", "description": "צפייה באירועים" },
+    { "name": "האזור שלי", "url": "/dashboard", "description": "הרשמות שלי" }
+  ]
+}
