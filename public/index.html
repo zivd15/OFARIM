@@ -187,7 +187,7 @@
     <div class="greeting-datetime" id="greetingDatetime"></div>
   </div>
 
-  <div class="logo-wrapper">
+  <div class="logo-wrapper" id="logoWrapper">
     <img src="/images/logo.png" alt="עופרים">
   </div>
 
@@ -215,14 +215,6 @@
       <div class="nav-text">
         <div class="nav-title">האזור שלי</div>
         <div class="nav-desc">כניסה, הרשמה וצפייה באירועים שלי</div>
-      </div>
-      <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
-    </a>
-
-    <a href="/admin" class="nav-item">
-      <div class="nav-text">
-        <div class="nav-title">ניהול</div>
-        <div class="nav-desc">כניסה למנהלות</div>
       </div>
       <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
     </a>
@@ -276,6 +268,15 @@
   }
   updateGreeting();
   setInterval(updateClock, 30000);
+
+  // Triple-click logo → admin
+  let _logoClicks = 0, _logoTimer;
+  document.getElementById('logoWrapper').addEventListener('click', function() {
+    _logoClicks++;
+    clearTimeout(_logoTimer);
+    if (_logoClicks >= 3) { _logoClicks = 0; window.location.href = '/admin'; return; }
+    _logoTimer = setTimeout(function() { _logoClicks = 0; }, 600);
+  });
 
   function openAbout() { document.getElementById('aboutModal').classList.add('open'); }
   function closeAbout(e) {
