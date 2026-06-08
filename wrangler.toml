@@ -1,8 +1,33 @@
+# wrangler.toml — Cloudflare Pages + D1 config for OFARIM
+# Docs: https://developers.cloudflare.com/pages/functions/wrangler-configuration/
+
 name = "ofarim"
 compatibility_date = "2024-09-23"
 pages_build_output_dir = "public"
 
+# ── D1 database binding ───────────────────────────────────────────────────────
+# Exposed to the Pages Function as `env.DB`. Get the id from `wrangler d1 create ofarim`.
 [[d1_databases]]
 binding = "DB"
 database_name = "ofarim"
 database_id = "f14040c6-8278-4e42-b2cf-ae44675f54ff"
+
+# ── Secrets (DO NOT put real values here — this file is committed) ─────────────
+# Set each as an encrypted Pages secret instead:
+#   npx wrangler pages secret put JWT_SECRET
+#   npx wrangler pages secret put BREVO_API_KEY
+#   npx wrangler pages secret put TURNSTILE_SECRET_KEY
+#   npx wrangler pages secret put INIT_ADMIN_PASSWORD
+#   npx wrangler pages secret put CRON_SECRET
+#   npx wrangler pages secret put WEBHOOK_SECRET
+#
+# Required secrets and where they're used:
+#   JWT_SECRET            — signs/verifies all JWTs        (app fails closed if unset)
+#   BREVO_API_KEY         — OTP email delivery (Brevo)     (request-otp 500s if unset)
+#   TURNSTILE_SECRET_KEY  — anti-bot on request-otp        (request-otp 500s if unset)
+#   INIT_ADMIN_PASSWORD   — one-time admin bootstrap        (/setup-admin)
+#   CRON_SECRET           — seat-hold sweeper auth          (/internal/cleanup-holds)
+#   WEBHOOK_SECRET        — payment confirm webhook auth     (/events/:id/confirm-payment)
+#
+# For LOCAL dev (`wrangler pages dev`), put the same keys in a gitignored .dev.vars file.
+# Turnstile local test keys: site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA

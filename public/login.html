@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ofarim — כניסה</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -36,21 +37,9 @@
     padding: 32px 28px;
   }
 
-  .tabs {
-    display: flex; gap: 0; margin-bottom: 24px;
-    border-radius: 10px; overflow: hidden;
-    border: 1px solid rgba(168,143,100,0.3);
-  }
-  .tab {
-    flex: 1; padding: 12px; text-align: center;
-    font-weight: 600; font-size: 0.95rem;
-    cursor: pointer; border: none;
-    background: transparent; color: #8b7a5e;
-    font-family: inherit; transition: all 0.2s;
-  }
-  .tab.active {
-    background: #5a4a32; color: #fff;
-  }
+  .card-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+  .step-hint { font-size: 0.9rem; color: #8b7a5e; margin-bottom: 20px; line-height: 1.5; }
+  .step-hint strong { color: #5a4a32; }
 
   .form-group { margin-bottom: 14px; }
   .form-group label {
@@ -68,6 +57,11 @@
     outline: none; border-color: #5a4a32;
   }
 
+  .code-input {
+    letter-spacing: 0.5em; text-align: center;
+    font-size: 1.4rem !important; font-weight: 700;
+  }
+
   .btn-submit {
     width: 100%; padding: 13px;
     background: #5a4a32; color: #fff;
@@ -79,13 +73,22 @@
   .btn-submit:hover { opacity: 0.9; }
   .btn-submit:disabled { opacity: 0.5; cursor: default; }
 
-  .error-msg {
-    background: rgba(231,76,60,0.1); color: #e74c3c;
+  .link-btn {
+    width: 100%; margin-top: 14px;
+    background: none; border: none;
+    color: #8b7a5e; font-family: inherit;
+    font-size: 0.85rem; cursor: pointer;
+  }
+  .link-btn:hover { color: #5a4a32; }
+
+  .msg {
     padding: 10px 14px; border-radius: 8px;
     font-size: 0.85rem; margin-bottom: 14px;
     display: none;
   }
-  .error-msg.show { display: block; }
+  .msg.show { display: block; }
+  .error-msg { background: rgba(231,76,60,0.1); color: #e74c3c; }
+  .info-msg { background: rgba(46,204,113,0.12); color: #27875a; }
 
   .back-link {
     display: block; text-align: center;
@@ -110,49 +113,38 @@
   </a>
 
   <div class="card">
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('login')">כניסה</button>
-      <button class="tab" onclick="switchTab('register')">הרשמה</button>
-    </div>
+    <div class="msg error-msg" id="errorMsg"></div>
+    <div class="msg info-msg" id="infoMsg"></div>
 
-    <div class="error-msg" id="errorMsg"></div>
-
-    <!-- Login Form -->
-    <form id="loginForm" onsubmit="handleLogin(event)">
+    <!-- Step 1: request a code -->
+    <form id="emailForm" onsubmit="handleRequestOtp(event)">
+      <div class="card-title">כניסה / הרשמה</div>
+      <p class="step-hint">הזינו את כתובת האימייל שלכם ונשלח לכם קוד התחברות חד-פעמי. ללא סיסמה.</p>
+      <div class="form-group">
+        <label>שם <span style="font-weight:400;color:#8b7a5e">(לכניסה ראשונה)</span></label>
+        <input type="text" id="name" placeholder="השם שלך" autocomplete="name">
+      </div>
       <div class="form-group">
         <label>אימייל</label>
-        <input type="email" id="loginEmail" placeholder="your@email.com" required dir="ltr">
+        <input type="email" id="email" placeholder="your@email.com" required dir="ltr" autocomplete="email">
       </div>
-      <div class="form-group">
-        <label>סיסמה</label>
-        <input type="password" id="loginPassword" placeholder="הסיסמה שלך" required>
-      </div>
-      <button type="submit" class="btn-submit" id="loginBtn">כניסה</button>
+      <!-- Cloudflare Turnstile anti-bot widget. Dummy site key (always passes) for local dev;
+           replace 1x00000000000000000000AA with the real site key in production. -->
+      <div class="cf-turnstile" data-sitekey="1x00000000000000000000AA" style="margin-bottom:14px;"></div>
+      <button type="submit" class="btn-submit" id="sendBtn">שליחת קוד</button>
     </form>
 
-    <!-- Register Form -->
-    <form id="registerForm" style="display:none" onsubmit="handleRegister(event)">
+    <!-- Step 2: verify the code -->
+    <form id="otpForm" style="display:none" onsubmit="handleVerifyOtp(event)">
+      <div class="card-title">הזנת קוד</div>
+      <p class="step-hint">שלחנו קוד בן 6 ספרות אל <strong id="emailEcho"></strong>. הקוד תקף ל-10 דקות.</p>
       <div class="form-group">
-        <label>שם מלא</label>
-        <input type="text" id="regName" placeholder="השם שלך" required>
+        <label>קוד אימות</label>
+        <input type="text" id="code" class="code-input" placeholder="------" required dir="ltr"
+          inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
       </div>
-      <div class="form-group">
-        <label>אימייל</label>
-        <input type="email" id="regEmail" placeholder="your@email.com" required dir="ltr">
-      </div>
-      <div class="form-group">
-        <label>טלפון (אופציונלי)</label>
-        <input type="tel" id="regPhone" placeholder="050-1234567" dir="ltr">
-      </div>
-      <div class="form-group">
-        <label>סיסמה</label>
-        <input type="password" id="regPassword" placeholder="לפחות 6 תווים" required minlength="6">
-      </div>
-      <div class="form-group">
-        <label>אימות סיסמה</label>
-        <input type="password" id="regConfirm" placeholder="הקלידי שוב" required>
-      </div>
-      <button type="submit" class="btn-submit" id="regBtn">הרשמה</button>
+      <button type="submit" class="btn-submit" id="verifyBtn">אימות וכניסה</button>
+      <button type="button" class="link-btn" onclick="backToEmail()">← שינוי אימייל / שליחה חוזרת</button>
     </form>
   </div>
 
@@ -162,85 +154,100 @@
 <footer>עופרים &copy; 2025 — גדולים יותר, חזקים יותר, חכמים יותר וטובי לב</footer>
 
 <script>
-  // If already logged in, redirect to dashboard
+  // If already logged in, go straight to the dashboard.
   if (localStorage.getItem('ofarim_user_token')) {
     fetch('/api/user-auth/me', {
       headers: { 'Authorization': 'Bearer ' + localStorage.getItem('ofarim_user_token') }
     }).then(r => { if (r.ok) window.location.href = '/dashboard'; });
   }
 
-  function switchTab(tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('errorMsg').className = 'error-msg';
-    if (tab === 'login') {
-      document.querySelectorAll('.tab')[0].classList.add('active');
-      document.getElementById('loginForm').style.display = '';
-      document.getElementById('registerForm').style.display = 'none';
-    } else {
-      document.querySelectorAll('.tab')[1].classList.add('active');
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('registerForm').style.display = '';
-    }
-  }
-
   function showError(msg) {
     const el = document.getElementById('errorMsg');
-    el.textContent = msg;
-    el.className = 'error-msg show';
+    el.textContent = msg; el.className = 'msg error-msg show';
+    document.getElementById('infoMsg').className = 'msg info-msg';
+  }
+  function showInfo(msg) {
+    const el = document.getElementById('infoMsg');
+    el.textContent = msg; el.className = 'msg info-msg show';
+  }
+  function clearMsgs() {
+    document.getElementById('errorMsg').className = 'msg error-msg';
+    document.getElementById('infoMsg').className = 'msg info-msg';
   }
 
-  async function handleLogin(e) {
+  function resetTurnstile() {
+    if (window.turnstile) { try { turnstile.reset(); } catch (e) {} }
+  }
+
+  async function handleRequestOtp(e) {
     e.preventDefault();
-    const btn = document.getElementById('loginBtn');
-    btn.disabled = true;
+    clearMsgs();
+    const email = document.getElementById('email').value.trim();
+    const name = document.getElementById('name').value.trim();
+    // The Turnstile widget injects a hidden <input name="cf-turnstile-response">.
+    const tokenEl = document.querySelector('#emailForm [name="cf-turnstile-response"]');
+    const turnstileToken = tokenEl ? tokenEl.value : '';
+    if (!turnstileToken) { showError('יש להשלים את אימות "אינני רובוט".'); return; }
+
+    const btn = document.getElementById('sendBtn');
+    btn.disabled = true; btn.textContent = 'שולח...';
     try {
-      const resp = await fetch('/api/user-auth/login', {
+      const resp = await fetch('/api/user-auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: document.getElementById('loginEmail').value,
-          password: document.getElementById('loginPassword').value
-        })
+        body: JSON.stringify({ email, name, 'cf-turnstile-response': turnstileToken })
       });
       const data = await resp.json();
-      if (!resp.ok) { showError(data.error); btn.disabled = false; return; }
+      if (!resp.ok) {
+        showError(data.error || 'שגיאה בשליחת הקוד');
+        resetTurnstile();   // tokens are single-use; get a fresh one before retry
+        return;
+      }
+      // Transition to step 2.
+      document.getElementById('emailEcho').textContent = email;
+      document.getElementById('emailForm').style.display = 'none';
+      document.getElementById('otpForm').style.display = '';
+      showInfo('הקוד נשלח. בדקו את תיבת האימייל שלכם.');
+      document.getElementById('code').focus();
+    } catch (err) {
+      showError('שגיאת שרת: ' + err.message);
+      resetTurnstile();
+    } finally {
+      btn.disabled = false; btn.textContent = 'שליחת קוד';
+    }
+  }
+
+  async function handleVerifyOtp(e) {
+    e.preventDefault();
+    clearMsgs();
+    const email = document.getElementById('email').value.trim();
+    const code = document.getElementById('code').value.trim();
+    const btn = document.getElementById('verifyBtn');
+    btn.disabled = true; btn.textContent = 'מאמת...';
+    try {
+      const resp = await fetch('/api/user-auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+      const data = await resp.json();
+      if (!resp.ok) { showError(data.error || 'קוד שגוי או שפג תוקפו'); return; }
       localStorage.setItem('ofarim_user_token', data.token);
       localStorage.setItem('ofarim_user', JSON.stringify(data.user));
       window.location.href = '/dashboard';
     } catch (err) {
       showError('שגיאת שרת: ' + err.message);
-      btn.disabled = false;
+    } finally {
+      btn.disabled = false; btn.textContent = 'אימות וכניסה';
     }
   }
 
-  async function handleRegister(e) {
-    e.preventDefault();
-    const pw = document.getElementById('regPassword').value;
-    const confirm = document.getElementById('regConfirm').value;
-    if (pw !== confirm) { showError('הסיסמאות לא תואמות'); return; }
-
-    const btn = document.getElementById('regBtn');
-    btn.disabled = true;
-    try {
-      const resp = await fetch('/api/user-auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: document.getElementById('regName').value,
-          email: document.getElementById('regEmail').value,
-          phone: document.getElementById('regPhone').value,
-          password: pw
-        })
-      });
-      const data = await resp.json();
-      if (!resp.ok) { showError(data.error); btn.disabled = false; return; }
-      localStorage.setItem('ofarim_user_token', data.token);
-      localStorage.setItem('ofarim_user', JSON.stringify(data.user));
-      window.location.href = '/dashboard';
-    } catch (err) {
-      showError('שגיאת שרת: ' + err.message);
-      btn.disabled = false;
-    }
+  function backToEmail() {
+    clearMsgs();
+    document.getElementById('otpForm').style.display = 'none';
+    document.getElementById('emailForm').style.display = '';
+    document.getElementById('code').value = '';
+    resetTurnstile();   // need a fresh token to request another code
   }
 </script>
 </body>

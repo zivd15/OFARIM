@@ -1,0 +1,25 @@
+name: Cleanup expired seat holds
+
+# Releases unpaid 'pending' holds older than 15 minutes by calling the sweeper.
+# Cloudflare Pages Functions have no native cron, so we schedule it here.
+#
+# Requires a GitHub Actions repo secret: CRON_SECRET (must equal the Pages secret).
+# Note: GitHub's scheduler can be delayed/coalesced under load — fine for a 15-min
+# hold window. For tighter timing, use a dedicated Cloudflare Worker cron instead.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 minutes
+  workflow_dispatch:         # allow manual runs from the Actions tab
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup-holds
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            -X POST "https://ofarim.pages.dev/api/internal/cleanup-holds" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"; cat /tmp/out.json
+          test "$code" = "200"

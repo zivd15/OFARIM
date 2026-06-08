@@ -92,6 +92,8 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   const [location, setLocation] = useState(event?.location || '');
   const [color, setColor] = useState(event?.color || '#3498db');
   const [maxParticipants, setMaxParticipants] = useState(event?.max_participants || 0);
+  // price is stored in agorot on the server; the form works in whole ILS.
+  const [price, setPrice] = useState(event?.price ? event.price / 100 : '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -104,7 +106,8 @@ function EventForm({ event, onSave, onDelete, onClose }) {
     if (!date) return setError('Date is required');
     setLoading(true);
     try {
-      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0 };
+      // Send price in ILS; the API converts to agorot on insert.
+      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0 };
       if (event) {
         await apiFetch(`/events/${event.id}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
@@ -166,10 +169,17 @@ function EventForm({ event, onSave, onDelete, onClose }) {
             <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={1000} rows={3}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none" />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-600 mb-1">Max Participants (0 = unlimited)</label>
-            <input type="number" value={maxParticipants} onChange={e => setMaxParticipants(e.target.value)} min="0"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-semibold text-gray-600 mb-1">Max Participants (0 = unlimited)</label>
+              <input type="number" value={maxParticipants} onChange={e => setMaxParticipants(e.target.value)} min="0"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-600 mb-1">Price ₪ (0 = free)</label>
+              <input type="number" value={price} onChange={e => setPrice(e.target.value)} min="0" step="0.01" placeholder="0"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-1">Color</label>
@@ -201,55 +211,111 @@ function EventForm({ event, onSave, onDelete, onClose }) {
 }
 
 // ─── Participants Modal ──────────────────────────────────
-function ParticipantsModal({ event, onClose, onRemove }) {
-  const [loading, setLoading] = useState(false);
+const STATUS_META = {
+  confirmed:  { label: 'Confirmed',       badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+  pending:    { label: 'Pending payment', badge: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-500' },
+  waitlisted: { label: 'Waitlist',        badge: 'bg-slate-100 text-slate-600',     dot: 'bg-slate-400' },
+};
+
+function StatusBadge({ status }) {
+  const m = STATUS_META[status] || STATUS_META.waitlisted;
+  return <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${m.badge}`}>{m.label}</span>;
+}
+
+function ParticipantsModal({ event, onClose, onChanged }) {
+  // Local copy so we can update a row to 'confirmed' without a full reload.
+  const [participants, setParticipants] = useState(event.participants || []);
+  const [busyId, setBusyId] = useState(null);
+
+  const held = participants.filter(p => p.status === 'confirmed' || p.status === 'pending').length;
 
   async function handleRemove(pid) {
     if (!confirm('Remove this participant?')) return;
-    setLoading(true);
+    setBusyId(pid);
     try {
       await apiFetch(`/events/${event.id}/participants/${pid}`, { method: 'DELETE' });
-      onRemove();
+      setParticipants(prev => prev.filter(p => p.id !== pid));
+      onChanged && onChanged();               // refresh dashboard counts in the background
     } catch (err) { alert(err.message); }
-    setLoading(false);
+    setBusyId(null);
+  }
+
+  async function handleConfirm(pid) {
+    setBusyId(pid);
+    try {
+      await apiFetch(`/events/${event.id}/confirm-payment`, {
+        method: 'POST', body: JSON.stringify({ participant_id: pid }),
+      });
+      setParticipants(prev => prev.map(p => p.id === pid ? { ...p, status: 'confirmed' } : p));
+      onChanged && onChanged();               // refresh dashboard counts in the background
+    } catch (err) { alert(err.message); }     // e.g. "Hold expired or invalid"
+    setBusyId(null);
+  }
+
+  function Row({ p }) {
+    return (
+      <div className="flex items-center gap-3 py-3">
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+            {p.name} <StatusBadge status={p.status} />
+          </div>
+          <div className="text-xs text-gray-400">
+            {p.phone && `📱 ${p.phone}`}
+            {p.phone && p.email && ' · '}
+            {p.email && `✉️ ${p.email}`}
+            {!p.phone && !p.email && `Signed ${p.created_at || p.signed_at}`}
+          </div>
+        </div>
+        {p.status === 'pending' && (
+          <button onClick={() => handleConfirm(p.id)} disabled={busyId === p.id}
+            className="text-xs bg-emerald-500 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-600 transition disabled:opacity-50 flex-shrink-0">
+            {busyId === p.id ? '…' : '✓ Confirm Payment'}
+          </button>
+        )}
+        <button onClick={() => handleRemove(p.id)} disabled={busyId === p.id}
+          className="text-xs text-red-400 hover:text-red-600 transition px-2 py-1 flex-shrink-0">
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  function Section({ status }) {
+    const rows = participants.filter(p => p.status === status);
+    if (rows.length === 0) return null;
+    const m = STATUS_META[status];
+    return (
+      <div className="mb-2">
+        <div className="flex items-center gap-2 pt-3 pb-1">
+          <span className={`w-2 h-2 rounded-full ${m.dot}`}></span>
+          <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{m.label}</span>
+          <span className="text-xs text-gray-400">({rows.length})</span>
+        </div>
+        <div className="divide-y divide-gray-100">
+          {rows.map(p => <Row key={p.id} p={p} />)}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 fade-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-2">
           <div>
             <h3 className="text-lg font-bold">{event.title}</h3>
-            <p className="text-sm text-gray-500">{event.participant_count} participant{event.participant_count !== 1 ? 's' : ''}
-              {event.max_participants > 0 ? ` / ${event.max_participants} max` : ''}</p>
+            <p className="text-sm text-gray-500">{held} held{event.max_participants > 0 ? ` / ${event.max_participants} max` : ''}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
         </div>
 
-        {event.participants.length === 0 ? (
+        {participants.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-8">No participants yet.</p>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {event.participants.map((p, i) => (
-              <div key={p.id} className="flex items-center gap-3 py-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold">
-                  {i + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm">{p.name}</div>
-                  <div className="text-xs text-gray-400">
-                    {p.phone && `📱 ${p.phone}`}
-                    {p.phone && p.email && ' · '}
-                    {p.email && `✉️ ${p.email}`}
-                    {!p.phone && !p.email && `Signed ${p.signed_at}`}
-                  </div>
-                </div>
-                <button onClick={() => handleRemove(p.id)} disabled={loading}
-                  className="text-xs text-red-400 hover:text-red-600 transition px-2 py-1">
-                  Remove
-                </button>
-              </div>
-            ))}
+          <div>
+            <Section status="confirmed" />
+            <Section status="pending" />
+            <Section status="waitlisted" />
           </div>
         )}
       </div>
@@ -343,13 +409,18 @@ function AdminApp() {
                     <span>📅 {ev.date}</span>
                     {ev.time && <span>🕐 {ev.time}{ev.end_time ? `-${ev.end_time}` : ''}</span>}
                     {ev.location && <span>📍 {ev.location}</span>}
+                    {ev.price > 0
+                      ? <span className="text-gray-600 font-semibold">💰 ₪{ev.price / 100}</span>
+                      : <span className="text-emerald-600 font-semibold">חינם · Free</span>}
                   </div>
                 </div>
-                <div className="text-center flex-shrink-0 px-3">
-                  <div className="text-xl font-bold text-primary">{ev.participant_count}</div>
-                  <div className="text-xs text-gray-400">
-                    {ev.max_participants > 0 ? `/ ${ev.max_participants}` : 'signed'}
-                  </div>
+                <div className="flex-shrink-0 flex items-center gap-1.5 px-2">
+                  <span title="Confirmed" className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ {ev.confirmed_count || 0}</span>
+                  <span title="Pending payment" className="text-xs font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700">⏳ {ev.pending_count || 0}</span>
+                  <span title="Waitlist" className="text-xs font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">⌛ {ev.waitlist_count || 0}</span>
+                  {ev.max_participants > 0 && (
+                    <span className="text-xs text-gray-400 ml-1">/ {ev.max_participants}</span>
+                  )}
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <button onClick={() => setViewParticipants(ev)}
@@ -374,7 +445,7 @@ function AdminApp() {
       {viewParticipants && (
         <ParticipantsModal event={viewParticipants}
           onClose={() => setViewParticipants(null)}
-          onRemove={() => { fetchEvents(); setViewParticipants(null); }} />
+          onChanged={fetchEvents} />
       )}
     </div>
   );

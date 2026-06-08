@@ -1,9 +1,40 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
+import { HTTPException } from 'hono/http-exception'
 
 const app = new Hono().basePath('/api')
 
-app.use('*', cors())
+// ── CORS (restricted) ─────────────────────────────────────────────────────────
+// Allow only local dev (http://localhost:8788) and production *.pages.dev.
+// Any other browser origin receives no Access-Control-Allow-Origin header and
+// is blocked by the browser. Same-origin / non-browser callers (no Origin) pass.
+const STATIC_ALLOWED_ORIGINS = ['http://localhost:8788']
+
+function resolveAllowedOrigin(origin) {
+  if (!origin) return undefined                       // same-origin / server-to-server
+  if (STATIC_ALLOWED_ORIGINS.includes(origin)) return origin
+  try {
+    const { protocol, hostname } = new URL(origin)
+    if (protocol === 'https:' && hostname.endsWith('.pages.dev')) return origin
+  } catch { /* malformed Origin → blocked */ }
+  return undefined                                    // not on the allowlist → blocked
+}
+
+app.use('*', cors({
+  origin: (origin) => resolveAllowedOrigin(origin),
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400,
+}))
+
+// Consistent JSON for every failure path so the frontend's `res.json()` never throws
+// on an unexpected HTML/text body (which would hang the UI).
+app.notFound(c => c.json({ error: 'Not found' }, 404))
+app.onError((err, c) => {
+  if (err instanceof HTTPException) return err.getResponse()   // preserves our JSON 500s (e.g. missing JWT_SECRET)
+  console.error('Unhandled error:', err?.message || err)
+  return c.json({ error: 'Internal server error' }, 500)
+})
 
 // ── JWT ──────────────────────────────────────────────────────────────────────
 
@@ -43,7 +74,17 @@ async function verifyJWT(token, secret) {
 }
 
 function jwtSecret(env) {
-  return env.JWT_SECRET || 'ofarim-secret-key-2024'
+  // Fail closed: never fall back to a hardcoded secret. A missing JWT_SECRET is
+  // a fatal misconfiguration, not something to silently work around.
+  if (!env.JWT_SECRET) {
+    throw new HTTPException(500, {
+      res: new Response(
+        JSON.stringify({ error: 'FATAL: JWT_SECRET environment variable is missing.' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      ),
+    })
+  }
+  return env.JWT_SECRET
 }
 
 async function generateToken(user, role, secret) {
@@ -80,34 +121,128 @@ async function verifyPassword(password, stored) {
 // ── Auth middleware ───────────────────────────────────────────────────────────
 
 async function authMiddleware(c, next) {
+  const secret = jwtSecret(c.env)   // throws 500 (fail closed) if JWT_SECRET is missing
   const token = c.req.header('authorization')?.split(' ')[1]
   if (!token) return c.json({ error: 'Authentication required' }, 401)
+  let payload
   try {
-    c.set('user', await verifyJWT(token, jwtSecret(c.env)))
-    await next()
+    payload = await verifyJWT(token, secret)
   } catch {
     return c.json({ error: 'Invalid or expired token' }, 403)
   }
+  c.set('user', payload)
+  await next()
 }
 
 async function optionalAuthMiddleware(c, next) {
+  const secret = jwtSecret(c.env)   // throws 500 (fail closed) if JWT_SECRET is missing
   const token = c.req.header('authorization')?.split(' ')[1]
   if (token) {
-    try { c.set('user', await verifyJWT(token, jwtSecret(c.env))) } catch {}
+    try { c.set('user', await verifyJWT(token, secret)) } catch {}
   }
   await next()
 }
 
-// ── Startup: ensure default admin exists ─────────────────────────────────────
-
-async function ensureAdmin(db, secret) {
-  const row = await db.prepare('SELECT COUNT(*) as count FROM admins').first()
-  if (row.count === 0) {
-    const hash = await hashPassword('admin123')
-    await db.prepare('INSERT INTO admins (name, email, password) VALUES (?, ?, ?)')
-      .bind('Admin', 'admin@ofarim.com', hash).run()
+// Authorize either a payment webhook (X-Webhook-Secret == env.WEBHOOK_SECRET) or
+// an admin JWT. Used by endpoints that must serve both automated clearing and
+// manual dashboard approval. Returns { ok, via } — never throws on bad creds.
+async function isAdminOrWebhook(c) {
+  const webhookSecret = c.env.WEBHOOK_SECRET
+  const provided = c.req.header('x-webhook-secret')
+  if (webhookSecret && provided && constantTimeEqual(provided, webhookSecret)) {
+    return { ok: true, via: 'webhook' }
   }
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (token) {
+    const secret = jwtSecret(c.env)   // throws 500 (fail closed) if JWT_SECRET is missing
+    try {
+      const payload = await verifyJWT(token, secret)
+      if (payload.role === 'admin') return { ok: true, via: 'admin', user: payload }
+    } catch { /* invalid/expired token → unauthorized */ }
+  }
+  return { ok: false }
 }
+
+// ── Constant-time compare (init secret) ───────────────────────────────────────
+// Used to compare the supplied setup secret against INIT_ADMIN_PASSWORD without
+// leaking length/byte timing.
+
+function constantTimeEqual(a, b) {
+  const enc = new TextEncoder()
+  const ba = enc.encode(typeof a === 'string' ? a : '')
+  const bb = enc.encode(typeof b === 'string' ? b : '')
+  if (ba.length !== bb.length) return false
+  let diff = 0
+  for (let i = 0; i < ba.length; i++) diff |= ba[i] ^ bb[i]
+  return diff === 0
+}
+
+// ── One-time admin initialization (/api/setup-admin) ──────────────────────────
+// Gated by the INIT_ADMIN_PASSWORD env secret. Creates the FIRST admin only.
+//   403 if initialization is disabled (no env secret), the secret is wrong,
+//   or an admin already exists. This replaces the old insecure auto-seed.
+app.post('/setup-admin', async c => {
+  const initSecret = c.env.INIT_ADMIN_PASSWORD
+  if (!initSecret) return c.json({ error: 'Admin initialization is disabled' }, 403)
+
+  const body = await c.req.json().catch(() => ({}))
+  const { secret, name, email, password } = body
+  if (!constantTimeEqual(secret, initSecret)) {
+    return c.json({ error: 'Invalid initialization secret' }, 403)
+  }
+
+  // Fail closed if an admin already exists — this endpoint bootstraps the first one only.
+  const row = await c.env.DB.prepare('SELECT COUNT(*) as count FROM admins').first()
+  if (row.count > 0) return c.json({ error: 'Admin already initialized' }, 403)
+
+  if (!email?.trim()) return c.json({ error: 'Email is required' }, 400)
+  if (!password || password.length < 8) return c.json({ error: 'Password must be at least 8 characters' }, 400)
+
+  const hash = await hashPassword(password)
+  const result = await c.env.DB.prepare('INSERT INTO admins (name, email, password) VALUES (?, ?, ?)')
+    .bind(name?.trim() || 'Admin', email.trim().toLowerCase(), hash).run()
+
+  return c.json({ message: 'Admin created', admin: { id: result.meta.last_row_id, email: email.trim().toLowerCase() } }, 201)
+})
+
+// ── Internal / cron (/api/internal/*) ─────────────────────────────────────────
+// Sweeper that releases unpaid seat holds. Intended to be hit by a Cloudflare
+// Cron Trigger. Auth: Bearer token must equal env.CRON_SECRET (constant-time).
+app.post('/internal/cleanup-holds', async c => {
+  const cronSecret = c.env.CRON_SECRET
+  if (!cronSecret) return c.json({ error: 'CRON_SECRET not configured' }, 500)  // fail closed
+
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (!constantTimeEqual(token, cronSecret)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  // Atomically flip every stale pending hold to 'expired' and get back exactly the
+  // rows we changed. RETURNING means we never double-count and never touch a hold
+  // that was confirmed (paid) between scan and update.
+  const { results: expired } = await c.env.DB.prepare(
+    `UPDATE participants
+        SET status = 'expired'
+      WHERE status = 'pending'
+        AND created_at < datetime('now', '-15 minutes')
+      RETURNING event_id`
+  ).all()
+
+  if (!expired.length) return c.json({ expired: 0, events_released: 0 })
+
+  // Aggregate releases per event → one clamped decrement per event in a batch.
+  const perEvent = new Map()
+  for (const r of expired) perEvent.set(r.event_id, (perEvent.get(r.event_id) || 0) + 1)
+
+  const stmts = [...perEvent.entries()].map(([eventId, n]) =>
+    c.env.DB.prepare(
+      'UPDATE events SET current_participants = MAX(current_participants - ?, 0) WHERE id = ?'
+    ).bind(n, eventId)
+  )
+  await c.env.DB.batch(stmts)
+
+  return c.json({ expired: expired.length, events_released: perEvent.size })
+})
 
 // ── Admin auth (/api/auth/*) ──────────────────────────────────────────────────
 
@@ -115,9 +250,7 @@ app.post('/auth/login', async c => {
   const { email, password } = await c.req.json()
   if (!email || !password) return c.json({ error: 'Email and password are required' }, 400)
 
-  await ensureAdmin(c.env.DB, jwtSecret(c.env))
-
-  const admin = await c.env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind(email).first()
+  const admin = await c.env.DB.prepare('SELECT * FROM admins WHERE email = ?').bind(email.trim().toLowerCase()).first()
   if (!admin || !(await verifyPassword(password, admin.password))) {
     return c.json({ error: 'Invalid email or password' }, 401)
   }
@@ -131,37 +264,141 @@ app.get('/auth/me', authMiddleware, async c => {
   return c.json(admin)
 })
 
-// ── User auth (/api/user-auth/*) ──────────────────────────────────────────────
+// ── User auth (/api/user-auth/*) — passwordless OTP ───────────────────────────
 
-app.post('/user-auth/register', async c => {
-  const { name, email, phone, password } = await c.req.json()
-  if (!name?.trim()) return c.json({ error: 'Name is required' }, 400)
+// Cryptographically-random 6-digit code. (2^32 % 1e6 bias is negligible here.)
+function generateOTP() {
+  return String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0')
+}
+
+// Validate a Cloudflare Turnstile token server-side. Returns true only on success.
+async function verifyTurnstile(token, secret, ip) {
+  if (!token) return false
+  const form = new URLSearchParams()
+  form.set('secret', secret)
+  form.set('response', token)
+  if (ip) form.set('remoteip', ip)
+  try {
+    const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form,
+    })
+    const data = await resp.json()
+    return data.success === true
+  } catch {
+    return false   // network/parse failure → treat as not verified (fail closed)
+  }
+}
+
+// Step 1: issue a code. Upserts the user and stashes a 10-minute OTP.
+// Always returns a neutral 200 (no email enumeration). The code is logged until
+// an email provider is wired — view it with `wrangler pages deployment tail`.
+app.post('/user-auth/request-otp', async c => {
+  const body = await c.req.json().catch(() => ({}))
+  const { email, name } = body
+  const turnstileToken = body['cf-turnstile-response'] || body.turnstileToken
   if (!email?.trim()) return c.json({ error: 'Email is required' }, 400)
-  if (!password || password.length < 6) return c.json({ error: 'Password must be at least 6 characters' }, 400)
 
-  const existing = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email.trim().toLowerCase()).first()
-  if (existing) return c.json({ error: 'Email already registered' }, 409)
+  // Anti-bot gate: a valid Turnstile token is required before we touch the DB or
+  // (later) spend email quota. Fail closed if the secret isn't configured.
+  const secret = c.env.TURNSTILE_SECRET_KEY
+  if (!secret) return c.json({ error: 'Turnstile is not configured' }, 500)
+  const human = await verifyTurnstile(turnstileToken, secret, c.req.header('cf-connecting-ip'))
+  if (!human) return c.json({ error: 'Bot verification failed' }, 403)
 
-  const hash = await hashPassword(password)
-  const result = await c.env.DB.prepare(
-    'INSERT INTO users (name, email, phone, password) VALUES (?, ?, ?, ?)'
-  ).bind(name.trim(), email.trim().toLowerCase(), phone?.trim() || '', hash).run()
+  const normEmail = email.trim().toLowerCase()
 
-  const user = { id: result.meta.last_row_id, name: name.trim(), email: email.trim().toLowerCase() }
-  const token = await generateToken(user, 'user', jwtSecret(c.env))
-  return c.json({ user: { ...user, phone: phone?.trim() || '' }, token }, 201)
+  // 60-second cooldown: a live code with >9 of its 10 minutes left was issued less
+  // than a minute ago — refuse to send another and protect our email quota.
+  const recent = await c.env.DB.prepare(
+    `SELECT 1 AS x FROM users
+      WHERE email = ? AND otp_code IS NOT NULL AND otp_expires_at > datetime('now', '+9 minutes')`
+  ).bind(normEmail).first()
+  if (recent) return c.json({ error: 'נא להמתין 60 שניות לפני בקשת קוד חדש.' }, 429)
+
+  // Email provider must be configured (fail closed).
+  const brevoKey = c.env.BREVO_API_KEY
+  if (!brevoKey) return c.json({ error: 'Email service is not configured' }, 500)
+
+  const code = generateOTP()
+
+  // Deliver via Brevo BEFORE persisting, so a delivery failure doesn't lock the user
+  // behind the cooldown holding a code they never received.
+  const emailPayload = {
+    sender: { name: 'OFARIM', email: 'noreply@your-domain.com' }, // TODO: set verified sender domain
+    to: [{ email: normEmail }],
+    subject: 'קוד הכניסה שלך למערכת עופרים',
+    htmlContent: `<div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+                    <h2>שלום${name ? ' ' + name : ''},</h2>
+                    <p>קוד הכניסה שלך למערכת עופרים הוא:</p>
+                    <h1 style="letter-spacing: 5px; background: #f4f4f5; padding: 10px; display: inline-block; border-radius: 5px;">${code}</h1>
+                    <p>הקוד בתוקף ל-10 דקות.</p>
+                    <p>אם לא ביקשת קוד זה, אנא התעלם מהודעה זו.</p>
+                  </div>`,
+  }
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'accept': 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
+    body: JSON.stringify(emailPayload),
+  })
+  if (!response.ok) {
+    console.error('[Brevo] send failed', response.status, await response.text().catch(() => ''))
+    return c.json({ error: 'Failed to send verification email' }, 500)
+  }
+
+  // Persist the code (resets the brute-force counter). password '' is a vestigial
+  // placeholder — it can never satisfy verifyPassword (needs a 'pbkdf2:' prefix).
+  await c.env.DB.prepare(`
+    INSERT INTO users (name, email, phone, password, otp_code, otp_expires_at, otp_attempts)
+    VALUES (?, ?, '', '', ?, datetime('now', '+10 minutes'), 0)
+    ON CONFLICT(email) DO UPDATE SET
+      otp_code = excluded.otp_code,
+      otp_expires_at = excluded.otp_expires_at,
+      otp_attempts = 0,
+      name = COALESCE(NULLIF(excluded.name, ''), users.name)
+  `).bind(name?.trim() || '', normEmail, code).run()
+
+  return c.json({ message: 'If that email is valid, a verification code has been sent.' }, 200)
 })
 
-app.post('/user-auth/login', async c => {
-  const { email, password } = await c.req.json()
-  if (!email || !password) return c.json({ error: 'Email and password are required' }, 400)
+// Step 2: verify. One atomic statement matches the code, checks expiry, and clears
+// the OTP — so a code can't be replayed or used twice even under concurrency.
+const MAX_OTP_ATTEMPTS = 5
 
-  const user = await c.env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email.trim().toLowerCase()).first()
-  if (!user || !(await verifyPassword(password, user.password))) {
-    return c.json({ error: 'Invalid email or password' }, 401)
+app.post('/user-auth/verify-otp', async c => {
+  const { email, code } = await c.req.json().catch(() => ({}))
+  if (!email?.trim() || !code?.toString().trim()) return c.json({ error: 'Email and code are required' }, 400)
+  const normEmail = email.trim().toLowerCase()
+  const codeStr = code.toString().trim()
+
+  // Atomically count THIS attempt against the active, unexpired code and read back
+  // the new count + stored code. Only rows with a live code are touched, so an
+  // already-used/expired/locked code matches nothing → generic 401.
+  const row = await c.env.DB.prepare(`
+    UPDATE users SET otp_attempts = otp_attempts + 1
+     WHERE email = ? AND otp_code IS NOT NULL AND otp_expires_at > datetime('now')
+     RETURNING id, name, email, phone, otp_code, otp_attempts
+  `).bind(normEmail).first()
+
+  if (!row) return c.json({ error: 'Invalid or expired code' }, 401)
+
+  const withinLimit = row.otp_attempts <= MAX_OTP_ATTEMPTS         // this attempt is the Nth (1..5)
+  const matches = constantTimeEqual(codeStr, row.otp_code)         // constant-time, not SQL '='
+
+  if (matches && withinLimit) {
+    await c.env.DB.prepare('UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = ?')
+      .bind(row.id).run()
+    const token = await generateToken({ id: row.id, email: row.email, name: row.name }, 'user', jwtSecret(c.env))
+    return c.json({ user: { id: row.id, name: row.name, email: row.email, phone: row.phone }, token })
   }
-  const token = await generateToken({ id: user.id, email: user.email, name: user.name }, 'user', jwtSecret(c.env))
-  return c.json({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone }, token })
+
+  // Wrong code, or the limit has been reached. At/over the cap, burn the code so the
+  // attacker must request a fresh one (and pass Turnstile again).
+  if (row.otp_attempts >= MAX_OTP_ATTEMPTS) {
+    await c.env.DB.prepare('UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?').bind(row.id).run()
+  }
+  return c.json({ error: 'Invalid or expired code' }, 401)
 })
 
 app.get('/user-auth/me', authMiddleware, async c => {
@@ -172,12 +409,31 @@ app.get('/user-auth/me', authMiddleware, async c => {
 
 // ── Event helper ──────────────────────────────────────────────────────────────
 
-async function withCounts(db, event) {
-  const row = await db.prepare('SELECT COUNT(*) as count FROM participants WHERE event_id = ?').bind(event.id).first()
+// Prices are stored in agorot (1 ILS = 100 agorot) to stay integer-exact for
+// external payment gateways. The admin UI works in ILS; convert on the way in.
+function ilsToAgorot(ils) {
+  const n = Number(ils)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.round(n * 100)
+}
+
+// Segmented active counts from an already-fetched participant list (expired excluded).
+// participant_count stays = held seats (confirmed + pending) for backward compat.
+function segmentCounts(participants) {
+  const confirmed_count = participants.filter(p => p.status === 'confirmed').length
+  const pending_count   = participants.filter(p => p.status === 'pending').length
+  const waitlist_count  = participants.filter(p => p.status === 'waitlisted').length
+  return { confirmed_count, pending_count, waitlist_count, participant_count: confirmed_count + pending_count }
+}
+
+function withCounts(_db, event) {
+  // current_participants is the authoritative held-seat counter (pending + confirmed),
+  // maintained atomically at registration / sweep time — no per-event COUNT needed.
+  const held = event.current_participants ?? 0
   return {
     ...event,
-    participant_count: row.count,
-    spots_left: event.max_participants > 0 ? Math.max(0, event.max_participants - row.count) : null,
+    participant_count: held,
+    spots_left: event.max_participants > 0 ? Math.max(0, event.max_participants - held) : null,
   }
 }
 
@@ -185,37 +441,45 @@ async function withCounts(db, event) {
 
 app.get('/events/public', async c => {
   const { month, year } = c.req.query()
-  let events
 
+  // Conditional aggregation: one query returns each event plus its active counts.
+  // 'expired' rows are simply never summed, so they're excluded from every count.
+  const base = `
+    SELECT e.id, e.title, e.date, e.time, e.end_time, e.description, e.location, e.color,
+           e.max_participants, e.price, e.current_participants,
+           COALESCE(SUM(CASE WHEN p.status = 'confirmed'  THEN 1 ELSE 0 END), 0) AS confirmed_count,
+           COALESCE(SUM(CASE WHEN p.status = 'pending'    THEN 1 ELSE 0 END), 0) AS pending_count,
+           COALESCE(SUM(CASE WHEN p.status = 'waitlisted' THEN 1 ELSE 0 END), 0) AS waitlist_count
+      FROM events e
+      LEFT JOIN participants p ON p.event_id = e.id`
+
+  let stmt
   if (month && year) {
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`
     const endMonth = parseInt(month) === 12 ? 1 : parseInt(month) + 1
     const endYear = parseInt(month) === 12 ? parseInt(year) + 1 : parseInt(year)
     const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
-    const { results } = await c.env.DB.prepare(
-      'SELECT id, title, date, time, end_time, description, location, color, max_participants FROM events WHERE date >= ? AND date < ? ORDER BY date, time'
-    ).bind(startDate, endDate).all()
-    events = results
+    stmt = c.env.DB.prepare(base + ' WHERE e.date >= ? AND e.date < ? GROUP BY e.id ORDER BY e.date, e.time').bind(startDate, endDate)
   } else {
-    const { results } = await c.env.DB.prepare(
-      'SELECT id, title, date, time, end_time, description, location, color, max_participants FROM events ORDER BY date, time'
-    ).all()
-    events = results
+    stmt = c.env.DB.prepare(base + ' GROUP BY e.id ORDER BY e.date, e.time')
   }
 
-  return c.json(await Promise.all(events.map(e => withCounts(c.env.DB, e))))
+  const { results } = await stmt.all()
+  return c.json(results.map(e => withCounts(null, e)))
 })
 
 app.get('/events/my-events', authMiddleware, async c => {
+  // Expose THIS user's registration status per event (confirmed/pending/waitlisted).
+  // Expired holds are hidden.
   const { results: events } = await c.env.DB.prepare(`
-    SELECT e.*, p.signed_at as registered_at, p.id as participant_id
+    SELECT e.*, p.status AS registration_status, p.created_at AS registered_at, p.id AS participant_id
     FROM participants p
     JOIN events e ON e.id = p.event_id
-    WHERE p.user_id = ?
+    WHERE p.user_id = ? AND p.status != 'expired'
     ORDER BY e.date DESC, e.time DESC
   `).bind(c.get('user').id).all()
 
-  return c.json(await Promise.all(events.map(e => withCounts(c.env.DB, e))))
+  return c.json(events.map(e => withCounts(null, e)))
 })
 
 app.get('/events/:id/calendar.ics', async c => {
@@ -247,35 +511,91 @@ app.get('/events/:id/calendar.ics', async c => {
 })
 
 app.post('/events/:id/register', optionalAuthMiddleware, async c => {
+  // Anti-IDOR: deliberately destructure only profile fields. Any `user_id`
+  // (or `id`) sent in the body is ignored — ownership comes from the JWT alone.
   const { name, phone, email } = await c.req.json()
   if (!name?.trim()) return c.json({ error: 'Name is required' }, 400)
 
-  const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
+  const event = await c.env.DB.prepare('SELECT id, max_participants, price FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
+  const isFree = (event.price ?? 0) <= 0
 
-  if (event.max_participants > 0) {
-    const row = await c.env.DB.prepare('SELECT COUNT(*) as count FROM participants WHERE event_id = ?').bind(event.id).first()
-    if (row.count >= event.max_participants) return c.json({ error: 'Event is full' }, 400)
-  }
+  // Ownership comes from the trusted JWT id only; anonymous registration stores NULL.
+  const userId = c.get('user')?.id ?? null
 
-  const reqUser = c.get('user')
-  if (reqUser) {
-    const dup = await c.env.DB.prepare('SELECT id FROM participants WHERE event_id = ? AND user_id = ?').bind(event.id, reqUser.id).first()
+  // Reject duplicates among still-active rows. An 'expired' hold does NOT block a
+  // retry, so a user whose Bit window lapsed can register again.
+  if (userId) {
+    const dup = await c.env.DB.prepare(
+      "SELECT id FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
+    ).bind(event.id, userId).first()
     if (dup) return c.json({ error: 'You are already registered for this event' }, 409)
   } else if (phone) {
-    const dup = await c.env.DB.prepare('SELECT id FROM participants WHERE event_id = ? AND name = ? AND phone = ?').bind(event.id, name.trim(), phone.trim()).first()
+    const dup = await c.env.DB.prepare(
+      "SELECT id FROM participants WHERE event_id = ? AND name = ? AND phone = ? AND status != 'expired'"
+    ).bind(event.id, name.trim(), phone.trim()).first()
     if (dup) return c.json({ error: 'You are already registered for this event' }, 409)
   }
 
-  await c.env.DB.prepare('INSERT INTO participants (event_id, name, phone, email, user_id) VALUES (?, ?, ?, ?, ?)')
-    .bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', reqUser?.id ?? null).run()
+  // ── Atomic seat hold ────────────────────────────────────────────────────────
+  // Single conditional UPDATE: only one concurrent request can push the counter
+  // past each threshold, so the cap can never be exceeded (no overbooking).
+  // max_participants = 0 means unlimited, so the hold always succeeds there.
+  const held = await c.env.DB.prepare(
+    `UPDATE events
+        SET current_participants = current_participants + 1
+      WHERE id = ?
+        AND (max_participants = 0 OR current_participants < max_participants)
+      RETURNING id`
+  ).bind(event.id).first()
 
-  const row = await c.env.DB.prepare('SELECT COUNT(*) as count FROM participants WHERE event_id = ?').bind(event.id).first()
+  // Free events skip the Bit hold: a secured seat is confirmed immediately.
+  // Paid events get a 'pending' hold the sweeper can expire after 15 minutes.
+  const status = held ? (isFree ? 'confirmed' : 'pending') : 'waitlisted'
+
+  await c.env.DB.prepare(
+    "INSERT INTO participants (event_id, name, phone, email, user_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
+  ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status).run()
+
+  if (held) {
+    if (isFree) {
+      return c.json({
+        status: 'confirmed',
+        message: 'You are registered! Your spot is confirmed — no payment required.',
+      }, 200)
+    }
+    return c.json({
+      status: 'pending',
+      message: 'Seat reserved. You have 15 minutes to complete your Bit payment.',
+    }, 200)
+  }
   return c.json({
-    message: 'Registered successfully',
-    participant_count: row.count,
-    spots_left: event.max_participants > 0 ? Math.max(0, event.max_participants - row.count) : null,
-  }, 201)
+    status: 'waitlisted',
+    message: 'This event is full. You have been added to the waitlist and will be notified if a seat opens up.',
+  }, 200)
+})
+
+// Confirm a pending hold once payment clears. Auth: admin JWT OR webhook secret.
+// The seat was already counted at hold time, so confirming changes no counter.
+app.post('/events/:id/confirm-payment', async c => {
+  const auth = await isAdminOrWebhook(c)
+  if (!auth.ok) return c.json({ error: 'Forbidden' }, 403)
+
+  const body = await c.req.json().catch(() => ({}))
+  const participantId = body.participant_id
+  if (!participantId) return c.json({ error: 'participant_id is required' }, 400)
+
+  // Only a still-pending hold for this event can be confirmed. An expired/invalid
+  // hold (or wrong event) updates zero rows → 400.
+  const updated = await c.env.DB.prepare(
+    `UPDATE participants
+        SET status = 'confirmed'
+      WHERE id = ? AND event_id = ? AND status = 'pending'
+      RETURNING id`
+  ).bind(participantId, c.req.param('id')).first()
+
+  if (!updated) return c.json({ error: 'Hold expired or invalid' }, 400)
+  return c.json({ message: 'Payment confirmed', participant_id: updated.id }, 200)
 })
 
 // ── Admin events (/api/events) ────────────────────────────────────────────────
@@ -297,8 +617,10 @@ app.get('/events', authMiddleware, async c => {
   }
 
   const enriched = await Promise.all(events.map(async e => {
-    const { results: participants } = await c.env.DB.prepare('SELECT * FROM participants WHERE event_id = ? ORDER BY signed_at').bind(e.id).all()
-    return { ...e, participants, participant_count: participants.length }
+    const { results: participants } = await c.env.DB.prepare(
+      "SELECT * FROM participants WHERE event_id = ? AND status != 'expired' ORDER BY created_at"
+    ).bind(e.id).all()
+    return { ...e, participants, ...segmentCounts(participants) }
   }))
   return c.json(enriched)
 })
@@ -306,19 +628,21 @@ app.get('/events', authMiddleware, async c => {
 app.get('/events/:id', authMiddleware, async c => {
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
-  const { results: participants } = await c.env.DB.prepare('SELECT * FROM participants WHERE event_id = ? ORDER BY signed_at').bind(event.id).all()
-  return c.json({ ...event, participants, participant_count: participants.length })
+  const { results: participants } = await c.env.DB.prepare(
+    "SELECT * FROM participants WHERE event_id = ? AND status != 'expired' ORDER BY created_at"
+  ).bind(event.id).all()
+  return c.json({ ...event, participants, ...segmentCounts(participants) })
 })
 
 app.post('/events', authMiddleware, async c => {
-  const { title, date, time, end_time, description, location, color, max_participants } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price } = await c.req.json()
   if (!title?.trim()) return c.json({ error: 'Title is required' }, 400)
   if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: 'Date required (YYYY-MM-DD)' }, 400)
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0).run()
+    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price)).run()
 
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(result.meta.last_row_id).first()
   return c.json({ ...event, participants: [], participant_count: 0 }, 201)
@@ -328,9 +652,9 @@ app.put('/events/:id', authMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
 
-  const { title, date, time, end_time, description, location, color, max_participants } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price } = await c.req.json()
   await c.env.DB.prepare(
-    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=? WHERE id=?'
+    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=? WHERE id=?'
   ).bind(
     title !== undefined ? title.trim() : existing.title,
     date || existing.date,
@@ -340,6 +664,7 @@ app.put('/events/:id', authMiddleware, async c => {
     location !== undefined ? location : existing.location,
     color || existing.color,
     max_participants !== undefined ? max_participants : existing.max_participants,
+    price !== undefined ? ilsToAgorot(price) : existing.price,
     c.req.param('id')
   ).run()
 

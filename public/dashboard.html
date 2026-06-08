@@ -66,6 +66,16 @@
     padding: 2px 8px; border-radius: 10px;
   }
 
+  /* Registration status badges */
+  .status-badge {
+    display: inline-block; font-size: 0.72rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .status-confirmed  { background: #d1f4e0; color: #15803d; }
+  .status-pending    { background: #fdecc8; color: #b45309; }
+  .status-waitlisted { background: #e2e8f0; color: #475569; }
+
   .event-card {
     background: rgba(255,255,255,0.85);
     backdrop-filter: blur(10px);
@@ -89,7 +99,7 @@
     width: 12px; height: 12px; border-radius: 50%;
     flex-shrink: 0; margin-top: 5px;
   }
-  .event-title { font-weight: 700; font-size: 1rem; }
+  .event-title { font-weight: 700; font-size: 1rem; flex: 1; }
   .event-meta {
     font-size: 0.82rem; color: #8b7a5e;
     display: flex; flex-wrap: wrap; gap: 12px;
@@ -260,19 +270,38 @@
     container.innerHTML = html;
   }
 
+  // User-friendly Hebrew date. Build from parts to avoid UTC parse shifting the day.
+  const heDateFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+  function formatDate(dateStr) {
+    const [y, m, d] = (dateStr || '').split('-').map(Number);
+    if (!y) return dateStr || '';
+    return heDateFmt.format(new Date(y, m - 1, d));
+  }
+
+  const STATUS_BADGES = {
+    confirmed:  ['status-confirmed', 'מאושר'],
+    pending:    ['status-pending', 'ממתין לתשלום'],
+    waitlisted: ['status-waitlisted', 'ברשימת המתנה'],
+  };
+  function statusBadge(status) {
+    const b = STATUS_BADGES[status];
+    return b ? `<span class="status-badge ${b[0]}">${b[1]}</span>` : '';
+  }
+
   function renderCard(ev, isPast) {
     const meta = [];
-    meta.push(ev.date);
-    if (ev.time) meta.push(ev.time + (ev.end_time ? ' - ' + ev.end_time : ''));
-    if (ev.location) meta.push(ev.location);
+    meta.push('📅 ' + escHtml(formatDate(ev.date)));
+    if (ev.time) meta.push('🕐 ' + escHtml(ev.time) + (ev.end_time ? ' - ' + escHtml(ev.end_time) : ''));
+    if (ev.location) meta.push('📍 ' + escHtml(ev.location));
 
     return `
       <div class="event-card${isPast ? ' past' : ''}">
         <div class="event-header">
           <div class="event-dot" style="background:${ev.color || '#3498db'}"></div>
           <div class="event-title">${escHtml(ev.title)}</div>
+          ${statusBadge(ev.registration_status)}
         </div>
-        <div class="event-meta">${meta.map(m => '<span>' + escHtml(m) + '</span>').join('')}</div>
+        <div class="event-meta">${meta.map(m => '<span>' + m + '</span>').join('')}</div>
         <div class="event-actions">
           <a class="btn-calendar" href="/api/events/${ev.id}/calendar.ics" download>
             📅 הוספה ליומן
