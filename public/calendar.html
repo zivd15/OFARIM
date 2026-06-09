@@ -365,13 +365,45 @@ function EventModal({ event, onClose, onRegistered }) {
               const endT   = event.end_time ? event.end_time.replace(':','') + '00' : (startT ? String(Number(startT.slice(0,4)) + 100).padStart(4,'0') + '00' : '');
               const dates  = startT ? `${d}T${startT}/${d}T${endT}` : `${d}/${d}`;
               const gcal   = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${dates}&details=${encodeURIComponent(event.description||'')}&location=${encodeURIComponent(event.location||'')}`;
+              const isPaid = displayPrice > 0;
               return (
-                <a href={gcal} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 py-2.5 mb-3 rounded-lg font-semibold transition"
-                  style={{textDecoration:'none', background:'#152020', color:'#A0CCC1'}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  הוספה ליומן
-                </a>
+                <>
+                  {/* Payment block — shown only for paid events */}
+                  {isPaid && (
+                    <div className="mb-3 border-2 border-amber-400" style={{background:'#fffbeb'}}>
+                      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-amber-300" style={{background:'#fef08a'}}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span className="text-xs font-black uppercase tracking-wide" style={{color:'#92400e'}}>נדרש תשלום לאישור המקום</span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-600">סכום לתשלום</span>
+                          <span className="font-black text-lg" style={{color:'#152020'}}>{fmtPrice(displayPrice)}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">יש לשלם כדי לאשר את שריון מקומך. ללא תשלום ייתכן ביטול ההרשמה.</p>
+                        {event.payment_link ? (
+                          <a href={event.payment_link} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-3 font-black text-sm uppercase tracking-widest transition"
+                            style={{textDecoration:'none', background:'#0e7490', color:'#fff', borderRadius:0}}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="0"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                            לתשלום עבור שריון המקום
+                          </a>
+                        ) : (
+                          <p className="text-center text-sm font-semibold py-2" style={{color:'#92400e'}}>
+                            אנא צור קשר עם המנהלות להסדרת התשלום
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  {/* Add to calendar */}
+                  <a href={gcal} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-2.5 mb-3 rounded-lg font-semibold transition"
+                    style={{textDecoration:'none', background:'#152020', color:'#A0CCC1'}}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    הוספה ליומן
+                  </a>
+                </>
               );
             })()}
             <form onSubmit={handleRegister} className="space-y-3">

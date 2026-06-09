@@ -99,6 +99,7 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   const [price, setPrice] = useState(event?.price ? event.price / 100 : '');
   const [allowCouples, setAllowCouples] = useState(event?.allow_couples ? true : false);
   const [couplePrice, setCouplePrice] = useState(event?.couple_price ? event.couple_price / 100 : '');
+  const [paymentLink, setPaymentLink] = useState(event?.payment_link || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -112,7 +113,7 @@ function EventForm({ event, onSave, onDelete, onClose }) {
     setLoading(true);
     try {
       // Send price in ILS; the API converts to agorot on insert.
-      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0 };
+      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0, payment_link: paymentLink.trim() || null };
       if (event) {
         await apiFetch(`/events/${event.id}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
@@ -200,6 +201,14 @@ function EventForm({ event, onSave, onDelete, onClose }) {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" />
               </div>
             )}
+          </div>
+          {/* ── Payment Link ── */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1">קישור לתשלום (PayBox / Bit)</label>
+            <input type="url" value={paymentLink} onChange={e => setPaymentLink(e.target.value)}
+              placeholder="https://payboxapp.page.link/..."
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" />
+            <p className="text-xs text-gray-400 mt-1">השאר ריק לאירוע חינמי או אם התשלום מסודר בנפרד</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-1">צבע</label>
