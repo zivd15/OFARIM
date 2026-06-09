@@ -118,7 +118,7 @@ function EventPill({ event, onClick }) {
       className="text-xs px-1.5 py-1 rounded cursor-pointer hover:opacity-80 transition mb-0.5"
       style={{ backgroundColor: event.color || '#3498db', color: '#fff' }}>
       <div className="font-semibold truncate">{event.time && `${event.time} `}{event.title}</div>
-      <div className="opacity-80">{isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}</div>
+      {isFull && <div className="opacity-80 text-xs">הרשמה מלאה</div>}
     </div>
   );
 }
