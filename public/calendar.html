@@ -243,6 +243,15 @@ function EventModal({ event, onClose, onRegistered }) {
   const [loading, setLoading] = useState(false);
   const [showCalendarBtn, setShowCalendarBtn] = useState(false);
 
+  useEffect(() => {
+    if (!getUserToken()) return;
+    apiFetch('/user-auth/me').then(user => {
+      if (user.name)  setName(user.name);
+      if (user.phone) setPhone(user.phone);
+      if (user.email) setEmail(user.email);
+    }).catch(() => {});
+  }, []);
+
   const isFull = event.spots_left !== null && event.spots_left <= 0;
 
   // Couple ticket needs 2 free spots; single needs 1.
