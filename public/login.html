@@ -111,9 +111,27 @@
     font-size: 11px; color: var(--text-muted); opacity: 0.7;
     line-height: 1.8;
   }
+  .sw-banner {
+    display: none; position: fixed; bottom: 20px; right: 50%; transform: translateX(50%);
+    z-index: 999; background: var(--dark); color: var(--mint);
+    padding: 12px 18px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(21,32,32,0.25);
+    font-size: 13px; font-weight: 600;
+    align-items: center; gap: 12px;
+  }
+  .sw-banner-btn {
+    background: var(--mint); color: var(--dark);
+    border: none; border-radius: 7px;
+    padding: 6px 14px; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
 </style>
 </head>
 <body>
+<div class="sw-banner" id="swBanner" style="display:none;">
+  עדכון זמין
+  <button class="sw-banner-btn" onclick="window.location.reload()">עדכן עכשיו</button>
+</div>
 <div class="container">
   <a href="/" class="logo-link">
     <img src="/images/logo.png" alt="עופרים">
@@ -167,7 +185,7 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'SW_UPDATED') window.location.reload();
+      if (e.data?.type === 'SW_UPDATED') document.getElementById('swBanner').style.display = 'flex';
     });
   }
 

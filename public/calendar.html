@@ -29,9 +29,27 @@ tailwind.config = {
   header { background: #152020 !important; border-color: rgba(160,204,193,0.15) !important; }
   header a, header span, header button { color: #A0CCC1 !important; }
   header button:hover { color: #D4878A !important; }
+  .sw-banner {
+    display: none; position: fixed; bottom: 20px; right: 50%; transform: translateX(50%);
+    z-index: 999; background: #152020; color: #A0CCC1;
+    padding: 12px 18px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(21,32,32,0.25);
+    font-size: 13px; font-weight: 600; font-family: 'Noto Sans Hebrew', sans-serif;
+    align-items: center; gap: 12px; white-space: nowrap;
+  }
+  .sw-banner-btn {
+    background: #A0CCC1; color: #152020;
+    border: none; border-radius: 7px;
+    padding: 6px 14px; font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+  }
 </style>
 </head>
 <body class="bg-bgLight font-sans text-textDark">
+<div class="sw-banner" id="swBanner" style="display:none;">
+  עדכון זמין
+  <button class="sw-banner-btn" onclick="window.location.reload()">עדכן עכשיו</button>
+</div>
 <div id="root"></div>
 
 <script type="text/babel">
@@ -432,7 +450,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
     navigator.serviceWorker.addEventListener('message', e => {
-      if (e.data?.type === 'SW_UPDATED') window.location.reload();
+      if (e.data?.type === 'SW_UPDATED') document.getElementById('swBanner').style.display = 'flex';
     });
   }
 </script>
