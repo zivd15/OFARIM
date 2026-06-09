@@ -125,36 +125,53 @@ function DayPopup({ day, month, year, events, onEventClick, onClose }) {
   const date = new Date(year, month, day);
   const dayName = dayNames[date.getDay()];
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md fade-in" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center px-5 py-4 border-b border-gray-100">
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, zIndex:9999,
+      background:'rgba(0,0,0,0.45)',
+      display:'flex', alignItems:'center', justifyContent:'center', padding:'16px'
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'#fff', borderRadius:'18px',
+        boxShadow:'0 20px 60px rgba(0,0,0,0.2)',
+        width:'100%', maxWidth:'420px',
+        maxHeight:'80vh', display:'flex', flexDirection:'column',
+        fontFamily:'Noto Sans Hebrew, sans-serif'
+      }}>
+        {/* Header */}
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'16px 20px', borderBottom:'1px solid #eee'}}>
           <div>
-            <div className="font-bold text-lg" style={{color:'#152020'}}>{dayName}, {day} ב{names[month]}</div>
-            <div className="text-xs text-gray-400">{events.length === 0 ? 'אין אירועים ביום זה' : `${events.length} אירועים`}</div>
+            <div style={{fontWeight:700, fontSize:'17px', color:'#152020'}}>{dayName}, {day} ב{names[month]}</div>
+            <div style={{fontSize:'11px', color:'#5a7a76', marginTop:'2px'}}>
+              {events.length === 0 ? 'אין אירועים בתאריך זה' : `${events.length} אירועים`}
+            </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer', color:'#999', lineHeight:1, padding:'4px'}}>✕</button>
         </div>
-        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+        {/* Body */}
+        <div style={{padding:'12px 16px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'10px'}}>
           {events.length === 0 ? (
-            <p className="text-center text-gray-400 text-sm py-6">אין אירועים מתוכננים ליום זה</p>
+            <p style={{textAlign:'center', color:'#9ca3af', fontSize:'14px', padding:'32px 0'}}>אין אירועים בתאריך זה</p>
           ) : events.map(ev => {
             const full = ev.spots_left !== null && ev.spots_left <= 0;
             return (
-              <div key={ev.id} onClick={() => { onClose(); onEventClick(ev); }}
-                className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary/40 hover:bg-gray-50 cursor-pointer transition">
-                <div className="w-1 self-stretch rounded-full flex-shrink-0 mt-0.5" style={{background: ev.color || '#4E7772'}}></div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
-                    <span>{ev.title}</span>
-                    <PriceBadge price={ev.price} />
-                  </div>
-                  {ev.time && <div className="text-xs text-gray-400 mt-0.5">{ev.time}{ev.end_time ? ` - ${ev.end_time}` : ''}</div>}
-                  {ev.location && <div className="text-xs text-gray-400">{ev.location}</div>}
-                  <div className={`text-xs font-semibold mt-1 ${full ? 'text-red-500' : 'text-green-600'}`}>
+              <div key={ev.id} onClick={() => { onClose(); onEventClick(ev); }} style={{
+                display:'flex', alignItems:'flex-start', gap:'12px',
+                padding:'12px', borderRadius:'12px',
+                border:'1px solid #e5e7eb', cursor:'pointer',
+                transition:'background 0.15s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background='#f9fafb'}
+              onMouseLeave={e => e.currentTarget.style.background='#fff'}>
+                <div style={{width:'4px', alignSelf:'stretch', borderRadius:'4px', background: ev.color || '#4E7772', flexShrink:0}}></div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontWeight:600, fontSize:'14px', color:'#152020', marginBottom:'3px'}}>{ev.title}</div>
+                  {ev.time && <div style={{fontSize:'12px', color:'#6b7280'}}>{ev.time}{ev.end_time ? ` - ${ev.end_time}` : ''}</div>}
+                  {ev.location && <div style={{fontSize:'12px', color:'#6b7280'}}>{ev.location}</div>}
+                  <div style={{fontSize:'12px', fontWeight:600, marginTop:'4px', color: full ? '#ef4444' : '#16a34a'}}>
                     {full ? 'הרשמה מלאה' : 'יש מקום פנוי'}
                   </div>
                 </div>
-                <span className="text-gray-300 text-sm flex-shrink-0">›</span>
+                <span style={{color:'#d1d5db', fontSize:'14px', flexShrink:0, marginTop:'2px'}}>›</span>
               </div>
             );
           })}
