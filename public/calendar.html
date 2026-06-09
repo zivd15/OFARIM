@@ -84,11 +84,16 @@ async function apiFetch(url, options = {}) {
 
 // ─── Price Badge ─────────────────────────────────────────
 // Sharp corners + high contrast: free = solid green, paid = solid black.
+function fmtPrice(agorot) {
+  const ils = agorot / 100;
+  return ils % 1 === 0 ? `₪${ils}` : `₪${ils.toFixed(2)}`;
+}
+
 function PriceBadge({ price, className = '' }) {
   const free = !price || price <= 0;
   return (
     <span className={`inline-block text-xs font-bold px-2 py-0.5 ${free ? 'bg-emerald-600 text-white' : 'bg-gray-900 text-white'} ${className}`}>
-      {free ? 'חינם' : `₪${price / 100}`}
+      {free ? 'חינם' : fmtPrice(price)}
     </span>
   );
 }
@@ -292,7 +297,6 @@ function EventModal({ event, onClose, onRegistered }) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-xl font-bold">{event.title}</h3>
-              <PriceBadge price={event.price} />
             </div>
             <div className="flex flex-wrap gap-2 mt-1 text-sm text-gray-500">
               <span>📅 {formatHeDate(event.date)}</span>
@@ -322,7 +326,7 @@ function EventModal({ event, onClose, onRegistered }) {
                 { value: 'couple', label: 'כרטיס זוגי', price: event.couple_price || 0 },
               ].map(opt => {
                 const active = ticketType === opt.value;
-                const freeLabel = opt.price <= 0 ? 'חינם' : `₪${opt.price / 100}`;
+                const freeLabel = opt.price <= 0 ? 'חינם' : fmtPrice(opt.price);
                 return (
                   <button key={opt.value} type="button" onClick={() => setTicketType(opt.value)}
                     style={active ? { background: '#152020', color: '#A0CCC1', border: '2px solid #152020' } : { background: '#fff', color: '#152020', border: '2px solid #e5e7eb' }}
@@ -344,7 +348,7 @@ function EventModal({ event, onClose, onRegistered }) {
           <div className="mb-4 flex items-center justify-between px-4 py-2.5 rounded-lg" style={{background:'#f8f9fa'}}>
             <span className="text-sm font-semibold text-gray-600">מחיר לתשלום</span>
             <span className="font-bold text-base" style={{color:'#152020'}}>
-              {displayPrice <= 0 ? 'חינם' : `₪${displayPrice / 100}`}
+              {displayPrice <= 0 ? 'חינם' : fmtPrice(displayPrice)}
             </span>
           </div>
         )}
