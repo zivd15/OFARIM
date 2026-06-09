@@ -112,19 +112,11 @@ function MonthNavigator({ month, year, onPrev, onNext }) {
 
 // ─── Event Pill (on calendar day) ────────────────────────
 function EventPill({ event, onClick }) {
-  const isFull = event.spots_left !== null && event.spots_left <= 0;
   return (
     <div onClick={(e) => { e.stopPropagation(); onClick(event); }}
-      className="cursor-pointer hover:opacity-80 transition mb-0.5 rounded overflow-hidden"
-      style={{ backgroundColor: event.color || '#3498db' }}
-      title={event.title}>
-      <div className="px-1 py-0.5" style={{ color: '#fff' }}>
-        <div style={{ fontSize: '9px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {event.time || '●'} {event.title}
-        </div>
-        {isFull && <div style={{ fontSize: '8px', opacity: 0.85 }}>מלא</div>}
-      </div>
-    </div>
+      className="cursor-pointer hover:opacity-80 transition mb-0.5 rounded"
+      style={{ backgroundColor: event.color || '#3498db', height: '6px', width: '100%' }}
+      title={event.title} />
   );
 }
 
