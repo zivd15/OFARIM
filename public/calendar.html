@@ -248,6 +248,7 @@ function EventModal({ event, onClose, onRegistered }) {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCalendarBtn, setShowCalendarBtn] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   useEffect(() => {
     if (!getUserToken()) return;
@@ -283,7 +284,7 @@ function EventModal({ event, onClose, onRegistered }) {
       });
       setSuccess(data.message || 'נרשמת בהצלחה!');
       setShowCalendarBtn(true);
-      setName(''); setPhone(''); setEmail('');
+      setRegistered(true);
       onRegistered();
     } catch (err) {
       setError(err.message);
@@ -360,7 +361,7 @@ function EventModal({ event, onClose, onRegistered }) {
             <h4 className="font-semibold text-sm mb-3">הרשמה לאירוע</h4>
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
             {success && <div className="bg-green-50 text-green-600 p-3 rounded-lg mb-3 text-sm">{success}</div>}
-            {showCalendarBtn && (() => {
+            {registered ? (() => {
               const d = event.date ? event.date.replace(/-/g,'') : '';
               const startT = event.time ? event.time.replace(':','') + '00' : '';
               const endT   = event.end_time ? event.end_time.replace(':','') + '00' : (startT ? String(Number(startT.slice(0,4)) + 100).padStart(4,'0') + '00' : '');
@@ -406,23 +407,24 @@ function EventModal({ event, onClose, onRegistered }) {
                   </a>
                 </>
               );
-            })()}
-            <form onSubmit={handleRegister} className="space-y-3">
-              <input type="text" placeholder="שמך המלא *" value={name} onChange={e => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="rtl" />
-              <input type="tel" placeholder="טלפון *" value={phone} onChange={e => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
-              <input type="email" placeholder="אימייל *" value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
-              <textarea placeholder="הערות (אופציונלי)" value={notes} onChange={e => setNotes(e.target.value)}
-                rows={2} dir="rtl"
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none" />
-              <button type="submit" disabled={loading}
-                className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
-                הרשמה
-              </button>
-            </form>
+            })() : (
+              <form onSubmit={handleRegister} className="space-y-3">
+                <input type="text" placeholder="שמך המלא *" value={name} onChange={e => setName(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="rtl" />
+                <input type="tel" placeholder="טלפון *" value={phone} onChange={e => setPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
+                <input type="email" placeholder="אימייל *" value={email} onChange={e => setEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
+                <textarea placeholder="הערות (אופציונלי)" value={notes} onChange={e => setNotes(e.target.value)}
+                  rows={2} dir="rtl"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none" />
+                <button type="submit" disabled={loading}
+                  className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
+                  הרשמה
+                </button>
+              </form>
+            )}
           </>
         ) : isFull ? (
           <div className="text-center py-4 text-gray-400">ההרשמה סגורה — האירוע מלא.</div>
