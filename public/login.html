@@ -164,7 +164,12 @@
 <footer>עופרים &copy; 2026<br><span style="font-size:10px;color:var(--mint);">נבנה על ידי High Standard Solution</span></footer>
 
 <script>
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type === 'SW_UPDATED') window.location.reload();
+    });
+  }
 
   if (localStorage.getItem('ofarim_user_token')) {
     fetch('/api/user-auth/me', { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('ofarim_user_token') } })
