@@ -419,11 +419,13 @@ function ilsToAgorot(ils) {
 }
 
 // Segmented active counts from an already-fetched participant list (expired excluded).
-// participant_count stays = held seats (confirmed + pending) for backward compat.
+// Uses SUM of spots so couple registrations (spots=2) count as 2 held seats.
 function segmentCounts(participants) {
-  const confirmed_count = participants.filter(p => p.status === 'confirmed').length
-  const pending_count   = participants.filter(p => p.status === 'pending').length
-  const waitlist_count  = participants.filter(p => p.status === 'waitlisted').length
+  const sumSpots = (status) =>
+    participants.filter(p => p.status === status).reduce((s, p) => s + (p.spots || 1), 0)
+  const confirmed_count = sumSpots('confirmed')
+  const pending_count   = sumSpots('pending')
+  const waitlist_count  = sumSpots('waitlisted')
   return { confirmed_count, pending_count, waitlist_count, participant_count: confirmed_count + pending_count }
 }
 
@@ -444,13 +446,14 @@ app.get('/events/public', async c => {
   const { month, year } = c.req.query()
 
   // Conditional aggregation: one query returns each event plus its active counts.
-  // 'expired' rows are simply never summed, so they're excluded from every count.
+  // Uses SUM(spots) so couple registrations (spots=2) count as 2 held seats.
+  // 'expired' rows are never summed, so they're excluded from every count.
   const base = `
     SELECT e.id, e.title, e.date, e.time, e.end_time, e.description, e.location, e.color,
-           e.max_participants, e.price, e.current_participants,
-           COALESCE(SUM(CASE WHEN p.status = 'confirmed'  THEN 1 ELSE 0 END), 0) AS confirmed_count,
-           COALESCE(SUM(CASE WHEN p.status = 'pending'    THEN 1 ELSE 0 END), 0) AS pending_count,
-           COALESCE(SUM(CASE WHEN p.status = 'waitlisted' THEN 1 ELSE 0 END), 0) AS waitlist_count
+           e.max_participants, e.price, e.current_participants, e.allow_couples, e.couple_price,
+           COALESCE(SUM(CASE WHEN p.status = 'confirmed'  THEN p.spots ELSE 0 END), 0) AS confirmed_count,
+           COALESCE(SUM(CASE WHEN p.status = 'pending'    THEN p.spots ELSE 0 END), 0) AS pending_count,
+           COALESCE(SUM(CASE WHEN p.status = 'waitlisted' THEN p.spots ELSE 0 END), 0) AS waitlist_count
       FROM events e
       LEFT JOIN participants p ON p.event_id = e.id`
 
@@ -514,12 +517,25 @@ app.get('/events/:id/calendar.ics', async c => {
 app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   // Anti-IDOR: deliberately destructure only profile fields. Any `user_id`
   // (or `id`) sent in the body is ignored — ownership comes from the JWT alone.
-  const { name, phone, email } = await c.req.json()
+  const { name, phone, email, ticket_type: rawTicketType } = await c.req.json()
   if (!name?.trim()) return c.json({ error: 'Name is required' }, 400)
 
-  const event = await c.env.DB.prepare('SELECT id, max_participants, price FROM events WHERE id = ?').bind(c.req.param('id')).first()
+  const ticketType = rawTicketType === 'couple' ? 'couple' : 'single'
+  const spots = ticketType === 'couple' ? 2 : 1
+
+  const event = await c.env.DB.prepare(
+    'SELECT id, max_participants, price, allow_couples, couple_price FROM events WHERE id = ?'
+  ).bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
-  const isFree = (event.price ?? 0) <= 0
+
+  // Reject couple ticket if the event doesn't allow it.
+  if (ticketType === 'couple' && !event.allow_couples) {
+    return c.json({ error: 'אירוע זה אינו מאפשר הרשמה זוגית.' }, 400)
+  }
+
+  // For couple tickets use couple_price; single tickets use the regular price.
+  const effectivePrice = ticketType === 'couple' ? (event.couple_price ?? 0) : (event.price ?? 0)
+  const isFree = effectivePrice <= 0
 
   // Ownership comes from the trusted JWT id only; anonymous registration stores NULL.
   const userId = c.get('user')?.id ?? null
@@ -530,25 +546,25 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
     const dup = await c.env.DB.prepare(
       "SELECT id FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
     ).bind(event.id, userId).first()
-    if (dup) return c.json({ error: 'You are already registered for this event' }, 409)
+    if (dup) return c.json({ error: 'אתה כבר רשום לאירוע זה.' }, 409)
   } else if (phone) {
     const dup = await c.env.DB.prepare(
       "SELECT id FROM participants WHERE event_id = ? AND name = ? AND phone = ? AND status != 'expired'"
     ).bind(event.id, name.trim(), phone.trim()).first()
-    if (dup) return c.json({ error: 'You are already registered for this event' }, 409)
+    if (dup) return c.json({ error: 'אתה כבר רשום לאירוע זה.' }, 409)
   }
 
   // ── Atomic seat hold ────────────────────────────────────────────────────────
-  // Single conditional UPDATE: only one concurrent request can push the counter
-  // past each threshold, so the cap can never be exceeded (no overbooking).
-  // max_participants = 0 means unlimited, so the hold always succeeds there.
+  // Single conditional UPDATE: increment by `spots` (1 or 2) only when enough
+  // room remains, so overbooking is impossible even under concurrent requests.
+  // max_participants = 0 means unlimited; the hold always succeeds there.
   const held = await c.env.DB.prepare(
     `UPDATE events
-        SET current_participants = current_participants + 1
+        SET current_participants = current_participants + ?
       WHERE id = ?
-        AND (max_participants = 0 OR current_participants < max_participants)
+        AND (max_participants = 0 OR current_participants + ? <= max_participants)
       RETURNING id`
-  ).bind(event.id).first()
+  ).bind(spots, event.id, spots).first()
 
   // Free events skip the Bit hold: a secured seat is confirmed immediately.
   // Paid events get a 'pending' hold the sweeper can expire after 15 minutes.
@@ -556,16 +572,16 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
 
   try {
     await c.env.DB.prepare(
-      "INSERT INTO participants (event_id, name, phone, email, user_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
-    ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status).run()
+      "INSERT INTO participants (event_id, name, phone, email, user_id, status, ticket_type, spots, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+    ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status, ticketType, spots).run()
   } catch (err) {
     // UNIQUE constraint on (event_id, user_id) fired — concurrent duplicate.
-    // The seat counter was already incremented above; undo it so the cap stays accurate.
+    // The seat counter was already incremented above; undo it (by spots) so the cap stays accurate.
     if (err?.message?.includes('UNIQUE constraint failed')) {
       if (held) {
         await c.env.DB.prepare(
-          'UPDATE events SET current_participants = MAX(0, current_participants - 1) WHERE id = ?'
-        ).bind(event.id).run().catch(() => {})
+          'UPDATE events SET current_participants = MAX(0, current_participants - ?) WHERE id = ?'
+        ).bind(spots, event.id).run().catch(() => {})
       }
       return c.json({ error: 'אתה כבר רשום לאירוע זה.' }, 409)
     }
@@ -574,20 +590,11 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
 
   if (held) {
     if (isFree) {
-      return c.json({
-        status: 'confirmed',
-        message: 'You are registered! Your spot is confirmed — no payment required.',
-      }, 200)
+      return c.json({ status: 'confirmed', message: 'נרשמת בהצלחה! המקום שלך מאושר.' }, 200)
     }
-    return c.json({
-      status: 'pending',
-      message: 'Seat reserved. You have 15 minutes to complete your Bit payment.',
-    }, 200)
+    return c.json({ status: 'pending', message: 'המקום שמור. יש לך 15 דקות לסיים את התשלום.' }, 200)
   }
-  return c.json({
-    status: 'waitlisted',
-    message: 'This event is full. You have been added to the waitlist and will be notified if a seat opens up.',
-  }, 200)
+  return c.json({ status: 'waitlisted', message: 'האירוע מלא. נוספת לרשימת ההמתנה.' }, 200)
 })
 
 // Cancel own registration. Releases the seat and promotes the first waiter if any.
@@ -596,31 +603,35 @@ app.delete('/events/:id/cancel-registration', authMiddleware, async c => {
   const eventId = c.req.param('id')
 
   const participant = await c.env.DB.prepare(
-    "SELECT id, status FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
+    "SELECT id, status, spots FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
   ).bind(eventId, userId).first()
 
   if (!participant) return c.json({ error: 'לא נמצאה הרשמה פעילה' }, 404)
 
+  const canceledSpots = participant.spots || 1
+
   await c.env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(participant.id).run()
 
   if (participant.status === 'confirmed' || participant.status === 'pending') {
+    // Decrement by the number of spots the canceled booking held (1 or 2).
     await c.env.DB.prepare(
-      'UPDATE events SET current_participants = MAX(0, current_participants - 1) WHERE id = ?'
-    ).bind(eventId).run()
+      'UPDATE events SET current_participants = MAX(0, current_participants - ?) WHERE id = ?'
+    ).bind(canceledSpots, eventId).run()
 
-    // Promote first waiter
+    // Promote first waiter whose spots fit within the newly freed capacity.
     const waiter = await c.env.DB.prepare(
-      "SELECT id FROM participants WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at LIMIT 1"
+      "SELECT id, spots FROM participants WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at LIMIT 1"
     ).bind(eventId).first()
 
     if (waiter) {
-      const ev = await c.env.DB.prepare('SELECT price, max_participants, current_participants FROM events WHERE id = ?').bind(eventId).first()
-      const isFree = (ev?.price ?? 0) <= 0
+      const waiterSpots = waiter.spots || 1
+      const ev = await c.env.DB.prepare('SELECT price, couple_price, max_participants, current_participants FROM events WHERE id = ?').bind(eventId).first()
+      const isFree = (waiterSpots > 1 ? (ev?.couple_price ?? 0) : (ev?.price ?? 0)) <= 0
       const promoted = await c.env.DB.prepare(
-        `UPDATE events SET current_participants = current_participants + 1
-          WHERE id = ? AND (max_participants = 0 OR current_participants < max_participants)
+        `UPDATE events SET current_participants = current_participants + ?
+          WHERE id = ? AND (max_participants = 0 OR current_participants + ? <= max_participants)
           RETURNING id`
-      ).bind(eventId).first()
+      ).bind(waiterSpots, eventId, waiterSpots).first()
       if (promoted) {
         await c.env.DB.prepare("UPDATE participants SET status = ? WHERE id = ?")
           .bind(isFree ? 'confirmed' : 'pending', waiter.id).run()
@@ -691,14 +702,14 @@ app.get('/events/:id', authMiddleware, async c => {
 })
 
 app.post('/events', authMiddleware, async c => {
-  const { title, date, time, end_time, description, location, color, max_participants, price } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price } = await c.req.json()
   if (!title?.trim()) return c.json({ error: 'Title is required' }, 400)
   if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: 'Date required (YYYY-MM-DD)' }, 400)
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price)).run()
+    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price), allow_couples ? 1 : 0, ilsToAgorot(couple_price)).run()
 
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(result.meta.last_row_id).first()
   return c.json({ ...event, participants: [], participant_count: 0 }, 201)
@@ -708,9 +719,9 @@ app.put('/events/:id', authMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
 
-  const { title, date, time, end_time, description, location, color, max_participants, price } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price } = await c.req.json()
   await c.env.DB.prepare(
-    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=? WHERE id=?'
+    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=?, allow_couples=?, couple_price=? WHERE id=?'
   ).bind(
     title !== undefined ? title.trim() : existing.title,
     date || existing.date,
@@ -721,6 +732,8 @@ app.put('/events/:id', authMiddleware, async c => {
     color || existing.color,
     max_participants !== undefined ? max_participants : existing.max_participants,
     price !== undefined ? ilsToAgorot(price) : existing.price,
+    allow_couples !== undefined ? (allow_couples ? 1 : 0) : existing.allow_couples,
+    couple_price !== undefined ? ilsToAgorot(couple_price) : existing.couple_price,
     c.req.param('id')
   ).run()
 

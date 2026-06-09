@@ -237,12 +237,22 @@ function EventModal({ event, onClose, onRegistered }) {
   const [name, setName] = useState(userData?.name || '');
   const [phone, setPhone] = useState(userData?.phone || '');
   const [email, setEmail] = useState(userData?.email || '');
+  const [ticketType, setTicketType] = useState('single');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCalendarBtn, setShowCalendarBtn] = useState(false);
 
   const isFull = event.spots_left !== null && event.spots_left <= 0;
+
+  // Couple ticket needs 2 free spots; single needs 1.
+  const spotsNeeded = ticketType === 'couple' ? 2 : 1;
+  const notEnoughRoom = event.spots_left !== null && event.spots_left < spotsNeeded;
+
+  // Displayed price changes with the ticket selection.
+  const displayPrice = ticketType === 'couple'
+    ? (event.couple_price || 0)
+    : (event.price || 0);
 
   async function handleRegister(e) {
     e.preventDefault();
@@ -252,9 +262,9 @@ function EventModal({ event, onClose, onRegistered }) {
     try {
       const data = await apiFetch(`/events/${event.id}/register`, {
         method: 'POST',
-        body: JSON.stringify({ name, phone, email }),
+        body: JSON.stringify({ name, phone, email, ticket_type: ticketType }),
       });
-      setSuccess(`נרשמת בהצלחה! ${data.spots_left !== null ? 'נותרו ' + data.spots_left + ' מקומות' : data.participant_count + ' רשומים סה"כ'}`);
+      setSuccess(data.message || 'נרשמת בהצלחה!');
       setShowCalendarBtn(true);
       setName(''); setPhone(''); setEmail('');
       onRegistered();
@@ -291,8 +301,45 @@ function EventModal({ event, onClose, onRegistered }) {
           {isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}
         </div>
 
+        {/* Ticket type selector — shown only when the event allows couples */}
+        {!isFull && event.allow_couples ? (
+          <div className="mb-4">
+            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">סוג כרטיס</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'single', label: 'כרטיס יחיד', price: event.price || 0 },
+                { value: 'couple', label: 'כרטיס זוגי', price: event.couple_price || 0 },
+              ].map(opt => {
+                const active = ticketType === opt.value;
+                const freeLabel = opt.price <= 0 ? 'חינם' : `₪${opt.price / 100}`;
+                return (
+                  <button key={opt.value} type="button" onClick={() => setTicketType(opt.value)}
+                    style={active ? { background: '#152020', color: '#A0CCC1', border: '2px solid #152020' } : { background: '#fff', color: '#152020', border: '2px solid #e5e7eb' }}
+                    className="rounded-xl py-3 px-4 flex flex-col items-center gap-1 transition font-semibold text-sm">
+                    <span>{opt.label}</span>
+                    <span style={{ fontSize: '11px', opacity: 0.75 }}>{freeLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {notEnoughRoom && (
+              <p className="text-red-500 text-xs mt-2 font-semibold">אין מספיק מקומות פנויים לכרטיס זוגי.</p>
+            )}
+          </div>
+        ) : null}
+
+        {/* Dynamic price display */}
+        {!isFull && (
+          <div className="mb-4 flex items-center justify-between px-4 py-2.5 rounded-lg" style={{background:'#f8f9fa'}}>
+            <span className="text-sm font-semibold text-gray-600">מחיר לתשלום</span>
+            <span className="font-bold text-base" style={{color:'#152020'}}>
+              {displayPrice <= 0 ? 'חינם' : `₪${displayPrice / 100}`}
+            </span>
+          </div>
+        )}
+
         {/* Registration form */}
-        {!isFull ? (
+        {!isFull && !notEnoughRoom ? (
           <>
             <h4 className="font-semibold text-sm mb-3">הרשמה לאירוע</h4>
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
@@ -326,9 +373,9 @@ function EventModal({ event, onClose, onRegistered }) {
               </button>
             </form>
           </>
-        ) : (
+        ) : isFull ? (
           <div className="text-center py-4 text-gray-400">ההרשמה סגורה — האירוע מלא.</div>
-        )}
+        ) : null}
       </div>
     </div>
   );
