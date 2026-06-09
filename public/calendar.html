@@ -489,6 +489,11 @@ function App() {
                     <div className="font-semibold text-sm truncate flex items-center gap-2">
                       <span className="truncate">{ev.title}</span>
                       <PriceBadge price={ev.price} className="flex-shrink-0" />
+                      {ev.allow_couples && ev.couple_price > 0 && (
+                        <span className="inline-block text-xs font-bold px-2 py-0.5 bg-gray-700 text-white flex-shrink-0">
+                          זוגי {fmtPrice(ev.couple_price)}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-gray-400">
                       {formatHeDate(ev.date)} {ev.time && `· ${ev.time}`}
