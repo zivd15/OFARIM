@@ -290,7 +290,7 @@
     }
     updateClock();
   }
-  const heDateTimeFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  const heDateTimeFmt = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
   function updateClock() {
     const el = document.getElementById('greetingDatetime');
     if (el) el.textContent = heDateTimeFmt.format(new Date());
