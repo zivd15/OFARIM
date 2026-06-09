@@ -554,9 +554,23 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   // Paid events get a 'pending' hold the sweeper can expire after 15 minutes.
   const status = held ? (isFree ? 'confirmed' : 'pending') : 'waitlisted'
 
-  await c.env.DB.prepare(
-    "INSERT INTO participants (event_id, name, phone, email, user_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
-  ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status).run()
+  try {
+    await c.env.DB.prepare(
+      "INSERT INTO participants (event_id, name, phone, email, user_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))"
+    ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status).run()
+  } catch (err) {
+    // UNIQUE constraint on (event_id, user_id) fired — concurrent duplicate.
+    // The seat counter was already incremented above; undo it so the cap stays accurate.
+    if (err?.message?.includes('UNIQUE constraint failed')) {
+      if (held) {
+        await c.env.DB.prepare(
+          'UPDATE events SET current_participants = MAX(0, current_participants - 1) WHERE id = ?'
+        ).bind(event.id).run().catch(() => {})
+      }
+      return c.json({ error: 'אתה כבר רשום לאירוע זה.' }, 409)
+    }
+    throw err
+  }
 
   if (held) {
     if (isFree) {
