@@ -517,7 +517,7 @@ app.get('/events/:id/calendar.ics', async c => {
 app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   // Anti-IDOR: deliberately destructure only profile fields. Any `user_id`
   // (or `id`) sent in the body is ignored — ownership comes from the JWT alone.
-  const { name, phone, email, ticket_type: rawTicketType } = await c.req.json()
+  const { name, phone, email, ticket_type: rawTicketType, notes } = await c.req.json()
   if (!name?.trim()) return c.json({ error: 'Name is required' }, 400)
 
   const ticketType = rawTicketType === 'couple' ? 'couple' : 'single'
@@ -572,8 +572,8 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
 
   try {
     await c.env.DB.prepare(
-      "INSERT INTO participants (event_id, name, phone, email, user_id, status, ticket_type, spots, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
-    ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status, ticketType, spots).run()
+      "INSERT INTO participants (event_id, name, phone, email, user_id, status, ticket_type, spots, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
+    ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status, ticketType, spots, notes?.trim() || null).run()
   } catch (err) {
     // UNIQUE constraint on (event_id, user_id) fired — concurrent duplicate.
     // The seat counter was already incremented above; undo it (by spots) so the cap stays accurate.

@@ -243,6 +243,7 @@ function EventModal({ event, onClose, onRegistered }) {
   const [phone, setPhone] = useState(userData?.phone || '');
   const [email, setEmail] = useState(userData?.email || '');
   const [ticketType, setTicketType] = useState('single');
+  const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -278,7 +279,7 @@ function EventModal({ event, onClose, onRegistered }) {
     try {
       const data = await apiFetch(`/events/${event.id}/register`, {
         method: 'POST',
-        body: JSON.stringify({ name, phone, email, ticket_type: ticketType }),
+        body: JSON.stringify({ name, phone, email, ticket_type: ticketType, notes }),
       });
       setSuccess(data.message || 'נרשמת בהצלחה!');
       setShowCalendarBtn(true);
@@ -413,6 +414,9 @@ function EventModal({ event, onClose, onRegistered }) {
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
               <input type="email" placeholder="אימייל *" value={email} onChange={e => setEmail(e.target.value)}
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" style={{textAlign:'right'}} />
+              <textarea placeholder="הערות (אופציונלי)" value={notes} onChange={e => setNotes(e.target.value)}
+                rows={2} dir="rtl"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none" />
               <button type="submit" disabled={loading}
                 className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold hover:bg-blue-600 transition disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
