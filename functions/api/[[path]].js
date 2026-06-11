@@ -642,12 +642,12 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
     if (isFree) {
       // Send confirmation email for free (instantly confirmed) registrations
       if (email?.trim() && event.confirmation_message) {
-        sendBrevoEmail(c.env, {
+        await sendBrevoEmail(c.env, {
           to: email.trim(),
           name: name.trim(),
           subject: `אישור הרשמה — ${event.title}`,
           htmlContent: buildConfirmationEmail(event, name.trim()),
-        }).catch(() => {})
+        })
       }
       return c.json({ status: 'confirmed', message: 'נרשמת בהצלחה! המקום שלך מאושר.' }, 200)
     }
@@ -728,12 +728,12 @@ app.post('/events/:id/confirm-payment', async c => {
       'SELECT title, date, time, end_time, location, confirmation_message FROM events WHERE id = ?'
     ).bind(c.req.param('id')).first()
     if (ev?.confirmation_message) {
-      sendBrevoEmail(c.env, {
+      await sendBrevoEmail(c.env, {
         to: updated.email,
         name: updated.name,
         subject: `אישור הרשמה — ${ev.title}`,
         htmlContent: buildConfirmationEmail(ev, updated.name),
-      }).catch(() => {})
+      })
     }
   }
 
