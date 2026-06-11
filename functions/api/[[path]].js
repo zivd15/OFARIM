@@ -229,14 +229,15 @@ app.post('/internal/cleanup-holds', async c => {
         SET status = 'expired'
       WHERE status = 'pending'
         AND created_at < datetime('now', '-15 minutes')
-      RETURNING event_id`
+      RETURNING event_id, spots`
   ).all()
 
   if (!expired.length) return c.json({ expired: 0, events_released: 0 })
 
-  // Aggregate releases per event → one clamped decrement per event in a batch.
+  // Aggregate spot releases per event — must sum spots (not count rows) so that
+  // couple holds (spots=2) release 2 seats, not 1.
   const perEvent = new Map()
-  for (const r of expired) perEvent.set(r.event_id, (perEvent.get(r.event_id) || 0) + 1)
+  for (const r of expired) perEvent.set(r.event_id, (perEvent.get(r.event_id) || 0) + (r.spots || 1))
 
   const stmts = [...perEvent.entries()].map(([eventId, n]) =>
     c.env.DB.prepare(
@@ -244,6 +245,17 @@ app.post('/internal/cleanup-holds', async c => {
     ).bind(n, eventId)
   )
   await c.env.DB.batch(stmts)
+
+  // Reconcile current_participants for all affected events against the ground truth
+  // (SUM of spots for active holds). This self-heals any drift from the spots bug.
+  const reconcileStmts = [...perEvent.keys()].map(eventId =>
+    c.env.DB.prepare(
+      `UPDATE events SET current_participants = COALESCE(
+        (SELECT SUM(spots) FROM participants WHERE event_id = ? AND status IN ('confirmed','pending')), 0
+       ) WHERE id = ?`
+    ).bind(eventId, eventId)
+  )
+  if (reconcileStmts.length) await c.env.DB.batch(reconcileStmts)
 
   return c.json({ expired: expired.length, events_released: perEvent.size })
 })
