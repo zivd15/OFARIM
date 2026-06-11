@@ -147,6 +147,25 @@ async function optionalAuthMiddleware(c, next) {
   await next()
 }
 
+// Like authMiddleware, but additionally requires role === 'admin'. Used by the
+// event-management routes (create/edit/delete + reading the full participant
+// roster with PII). A valid 'user'-role token is rejected with 403 so that
+// any OTP-authenticated visitor cannot manage events or read other people's PII.
+async function adminMiddleware(c, next) {
+  const secret = jwtSecret(c.env)   // throws 500 (fail closed) if JWT_SECRET is missing
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (!token) return c.json({ error: 'Authentication required' }, 401)
+  let payload
+  try {
+    payload = await verifyJWT(token, secret)
+  } catch {
+    return c.json({ error: 'Invalid or expired token' }, 403)
+  }
+  if (payload.role !== 'admin') return c.json({ error: 'Forbidden' }, 403)
+  c.set('user', payload)
+  await next()
+}
+
 // Authorize either a payment webhook (X-Webhook-Secret == env.WEBHOOK_SECRET) or
 // an admin JWT. Used by endpoints that must serve both automated clearing and
 // manual dashboard approval. Returns { ok, via } — never throws on bad creds.
@@ -762,7 +781,7 @@ app.post('/events/:id/confirm-payment', async c => {
 
 // ── Admin events (/api/events) ────────────────────────────────────────────────
 
-app.get('/events', authMiddleware, async c => {
+app.get('/events', adminMiddleware, async c => {
   const { month, year } = c.req.query()
   let events
 
@@ -787,7 +806,7 @@ app.get('/events', authMiddleware, async c => {
   return c.json(enriched)
 })
 
-app.get('/events/:id', authMiddleware, async c => {
+app.get('/events/:id', adminMiddleware, async c => {
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
   const { results: participants } = await c.env.DB.prepare(
@@ -796,7 +815,7 @@ app.get('/events/:id', authMiddleware, async c => {
   return c.json({ ...event, participants, ...segmentCounts(participants) })
 })
 
-app.post('/events', authMiddleware, async c => {
+app.post('/events', adminMiddleware, async c => {
   const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message } = await c.req.json()
   if (!title?.trim()) return c.json({ error: 'Title is required' }, 400)
   if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
@@ -810,7 +829,7 @@ app.post('/events', authMiddleware, async c => {
   return c.json({ ...event, participants: [], participant_count: 0 }, 201)
 })
 
-app.put('/events/:id', authMiddleware, async c => {
+app.put('/events/:id', adminMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
 
@@ -840,14 +859,14 @@ app.put('/events/:id', authMiddleware, async c => {
   return c.json({ ...event, participants, participant_count: participants.length })
 })
 
-app.delete('/events/:id', authMiddleware, async c => {
+app.delete('/events/:id', adminMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
   await c.env.DB.prepare('DELETE FROM events WHERE id = ?').bind(c.req.param('id')).run()
   return c.json({ message: 'Event deleted successfully' })
 })
 
-app.delete('/events/:id/participants/:pid', authMiddleware, async c => {
+app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
   const participant = await c.env.DB.prepare('SELECT * FROM participants WHERE id = ? AND event_id = ?').bind(c.req.param('pid'), c.req.param('id')).first()
   if (!participant) return c.json({ error: 'Participant not found' }, 404)
   await c.env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(c.req.param('pid')).run()
