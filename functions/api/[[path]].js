@@ -878,8 +878,12 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
 // participants of events happening tomorrow that haven't been reminded yet.
 app.post('/internal/send-reminders', async c => {
   const cronSecret = c.env.CRON_SECRET
-  const auth = c.req.header('Authorization')
-  if (!cronSecret || auth !== `Bearer ${cronSecret}`) return c.json({ error: 'Forbidden' }, 403)
+  if (!cronSecret) return c.json({ error: 'CRON_SECRET not configured' }, 500)  // fail closed
+
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (!constantTimeEqual(token, cronSecret)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
 
   // Events happening tomorrow (server time = UTC; adjust if needed)
   const { results: events } = await c.env.DB.prepare(
