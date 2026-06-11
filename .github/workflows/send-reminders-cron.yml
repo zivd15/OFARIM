@@ -1,0 +1,22 @@
+name: Send 24h event reminders
+
+# Sends reminder emails to confirmed participants of events happening tomorrow.
+# Runs daily at 08:00 UTC (11:00 Israel time).
+# Reuses the existing CRON_SECRET GitHub Actions secret.
+
+on:
+  schedule:
+    - cron: '0 8 * * *'    # daily at 08:00 UTC
+  workflow_dispatch:        # allow manual runs from the Actions tab
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call send-reminders
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            -X POST "https://ofarim.pages.dev/api/internal/send-reminders" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "HTTP $code"; cat /tmp/out.json
+          test "$code" = "200"

@@ -408,6 +408,56 @@ app.get('/user-auth/me', authMiddleware, async c => {
   return c.json(user)
 })
 
+// ── Email helper ─────────────────────────────────────────────────────────────
+
+async function sendBrevoEmail(env, { to, name, subject, htmlContent }) {
+  const brevoKey = env.BREVO_API_KEY
+  if (!brevoKey) return
+  const payload = {
+    sender: { name: 'OFARIM', email: 'ofarim.grow@gmail.com' },
+    to: [{ email: to }],
+    subject,
+    htmlContent,
+  }
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'accept': 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) console.error('[Brevo] email failed', subject, res.status, await res.text().catch(() => ''))
+}
+
+function eventEmailDetails(ev) {
+  const heDate = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const [y, m, d] = (ev.date || '').split('-').map(Number)
+  const dateStr = y ? heDate.format(new Date(y, m - 1, d)) : ev.date
+  const timeStr = ev.time ? ` · ${ev.time}${ev.end_time ? '–' + ev.end_time : ''}` : ''
+  const locationStr = ev.location ? ` · ${ev.location}` : ''
+  return `${dateStr}${timeStr}${locationStr}`
+}
+
+function buildConfirmationEmail(ev, participantName) {
+  const details = eventEmailDetails(ev)
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
+    <h2 style="color:#152020;">שלום ${participantName},</h2>
+    <p>ההרשמה שלך לאירוע <strong>${ev.title}</strong> אושרה!</p>
+    <p style="color:#555;">${details}</p>
+    ${ev.confirmation_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${ev.confirmation_message.replace(/\n/g,'<br>')}</div>` : ''}
+    <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
+  </div>`
+}
+
+function buildReminderEmail(ev, participantName) {
+  const details = eventEmailDetails(ev)
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
+    <h2 style="color:#152020;">שלום ${participantName},</h2>
+    <p>תזכורת — האירוע <strong>${ev.title}</strong> מתקיים <strong>מחר</strong>!</p>
+    <p style="color:#555;">${details}</p>
+    ${ev.reminder_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${ev.reminder_message.replace(/\n/g,'<br>')}</div>` : ''}
+    <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
+  </div>`
+}
+
 // ── Event helper ──────────────────────────────────────────────────────────────
 
 // Prices are stored in agorot (1 ILS = 100 agorot) to stay integer-exact for
@@ -524,7 +574,7 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   const spots = ticketType === 'couple' ? 2 : 1
 
   const event = await c.env.DB.prepare(
-    'SELECT id, max_participants, price, allow_couples, couple_price FROM events WHERE id = ?'
+    'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message FROM events WHERE id = ?'
   ).bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
 
@@ -590,6 +640,15 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
 
   if (held) {
     if (isFree) {
+      // Send confirmation email for free (instantly confirmed) registrations
+      if (email?.trim() && event.confirmation_message) {
+        sendBrevoEmail(c.env, {
+          to: email.trim(),
+          name: name.trim(),
+          subject: `אישור הרשמה — ${event.title}`,
+          htmlContent: buildConfirmationEmail(event, name.trim()),
+        }).catch(() => {})
+      }
       return c.json({ status: 'confirmed', message: 'נרשמת בהצלחה! המקום שלך מאושר.' }, 200)
     }
     return c.json({ status: 'pending', message: 'המקום שמור. יש לך 15 דקות לסיים את התשלום.' }, 200)
@@ -658,10 +717,26 @@ app.post('/events/:id/confirm-payment', async c => {
     `UPDATE participants
         SET status = 'confirmed'
       WHERE id = ? AND event_id = ? AND status = 'pending'
-      RETURNING id`
+      RETURNING id, name, email`
   ).bind(participantId, c.req.param('id')).first()
 
   if (!updated) return c.json({ error: 'Hold expired or invalid' }, 400)
+
+  // Send confirmation email for paid registrations confirmed by admin
+  if (updated.email) {
+    const ev = await c.env.DB.prepare(
+      'SELECT title, date, time, end_time, location, confirmation_message FROM events WHERE id = ?'
+    ).bind(c.req.param('id')).first()
+    if (ev?.confirmation_message) {
+      sendBrevoEmail(c.env, {
+        to: updated.email,
+        name: updated.name,
+        subject: `אישור הרשמה — ${ev.title}`,
+        htmlContent: buildConfirmationEmail(ev, updated.name),
+      }).catch(() => {})
+    }
+  }
+
   return c.json({ message: 'Payment confirmed', participant_id: updated.id }, 200)
 })
 
@@ -702,14 +777,14 @@ app.get('/events/:id', authMiddleware, async c => {
 })
 
 app.post('/events', authMiddleware, async c => {
-  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message } = await c.req.json()
   if (!title?.trim()) return c.json({ error: 'Title is required' }, 400)
   if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: 'Date required (YYYY-MM-DD)' }, 400)
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price), allow_couples ? 1 : 0, ilsToAgorot(couple_price), payment_link?.trim() || null).run()
+    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price), allow_couples ? 1 : 0, ilsToAgorot(couple_price), payment_link?.trim() || null, confirmation_message?.trim() || null, reminder_message?.trim() || null).run()
 
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(result.meta.last_row_id).first()
   return c.json({ ...event, participants: [], participant_count: 0 }, 201)
@@ -719,9 +794,9 @@ app.put('/events/:id', authMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
 
-  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message } = await c.req.json()
   await c.env.DB.prepare(
-    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=?, allow_couples=?, couple_price=?, payment_link=? WHERE id=?'
+    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=?, allow_couples=?, couple_price=?, payment_link=?, confirmation_message=?, reminder_message=? WHERE id=?'
   ).bind(
     title !== undefined ? title.trim() : existing.title,
     date || existing.date,
@@ -735,6 +810,8 @@ app.put('/events/:id', authMiddleware, async c => {
     allow_couples !== undefined ? (allow_couples ? 1 : 0) : existing.allow_couples,
     couple_price !== undefined ? ilsToAgorot(couple_price) : existing.couple_price,
     payment_link !== undefined ? (payment_link?.trim() || null) : existing.payment_link,
+    confirmation_message !== undefined ? (confirmation_message?.trim() || null) : existing.confirmation_message,
+    reminder_message !== undefined ? (reminder_message?.trim() || null) : existing.reminder_message,
     c.req.param('id')
   ).run()
 
@@ -755,6 +832,42 @@ app.delete('/events/:id/participants/:pid', authMiddleware, async c => {
   if (!participant) return c.json({ error: 'Participant not found' }, 404)
   await c.env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(c.req.param('pid')).run()
   return c.json({ message: 'Participant removed' })
+})
+
+// ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
+// Called daily by GitHub Actions. Sends reminder emails to all confirmed
+// participants of events happening tomorrow that haven't been reminded yet.
+app.post('/internal/send-reminders', async c => {
+  const cronSecret = c.env.CRON_SECRET
+  const auth = c.req.header('Authorization')
+  if (!cronSecret || auth !== `Bearer ${cronSecret}`) return c.json({ error: 'Forbidden' }, 403)
+
+  // Events happening tomorrow (server time = UTC; adjust if needed)
+  const { results: events } = await c.env.DB.prepare(
+    "SELECT id, title, date, time, end_time, location, reminder_message FROM events WHERE date = date('now', '+1 day') AND reminder_message IS NOT NULL AND reminder_message != ''"
+  ).all()
+
+  if (!events.length) return c.json({ reminded: 0 })
+
+  let reminded = 0
+  for (const ev of events) {
+    const { results: participants } = await c.env.DB.prepare(
+      "SELECT id, name, email FROM participants WHERE event_id = ? AND status = 'confirmed' AND reminder_sent = 0 AND email != ''"
+    ).bind(ev.id).all()
+
+    for (const p of participants) {
+      await sendBrevoEmail(c.env, {
+        to: p.email,
+        name: p.name,
+        subject: `תזכורת — ${ev.title} מחר`,
+        htmlContent: buildReminderEmail(ev, p.name),
+      }).catch(() => {})
+      await c.env.DB.prepare('UPDATE participants SET reminder_sent = 1 WHERE id = ?').bind(p.id).run()
+      reminded++
+    }
+  }
+
+  return c.json({ reminded })
 })
 
 export function onRequest(context) {

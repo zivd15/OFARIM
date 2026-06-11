@@ -100,6 +100,8 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   const [allowCouples, setAllowCouples] = useState(event?.allow_couples ? true : false);
   const [couplePrice, setCouplePrice] = useState(event?.couple_price ? event.couple_price / 100 : '');
   const [paymentLink, setPaymentLink] = useState(event?.payment_link || '');
+  const [confirmationMessage, setConfirmationMessage] = useState(event?.confirmation_message || '');
+  const [reminderMessage, setReminderMessage] = useState(event?.reminder_message || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -113,7 +115,7 @@ function EventForm({ event, onSave, onDelete, onClose }) {
     setLoading(true);
     try {
       // Send price in ILS; the API converts to agorot on insert.
-      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0, payment_link: paymentLink.trim() || null };
+      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0, payment_link: paymentLink.trim() || null, confirmation_message: confirmationMessage.trim() || null, reminder_message: reminderMessage.trim() || null };
       if (event) {
         await apiFetch(`/events/${event.id}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
@@ -209,6 +211,21 @@ function EventForm({ event, onSave, onDelete, onClose }) {
               placeholder="https://payboxapp.page.link/..."
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary" dir="ltr" />
             <p className="text-xs text-gray-400 mt-1">השאר ריק לאירוע חינמי או אם התשלום מסודר בנפרד</p>
+          </div>
+          {/* ── Email Messages ── */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1">תוכן מייל אישור הרשמה</label>
+            <textarea value={confirmationMessage} onChange={e => setConfirmationMessage(e.target.value)} rows={4} dir="rtl"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none"
+              placeholder="טקסט שיישלח למשתתפים לאחר אישור ההרשמה..." />
+            <p className="text-xs text-gray-400 mt-1">השאר ריק כדי לא לשלוח מייל אישור</p>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-600 mb-1">תוכן מייל תזכורת (24 שעות לפני)</label>
+            <textarea value={reminderMessage} onChange={e => setReminderMessage(e.target.value)} rows={4} dir="rtl"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-primary resize-none"
+              placeholder="טקסט שיישלח למשתתפים יום לפני האירוע..." />
+            <p className="text-xs text-gray-400 mt-1">השאר ריק כדי לא לשלוח מייל תזכורת</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-600 mb-1">צבע</label>
