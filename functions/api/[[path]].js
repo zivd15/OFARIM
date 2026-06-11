@@ -439,22 +439,30 @@ async function sendBrevoEmail(env, { to, name, subject, htmlContent }) {
   if (!res.ok) console.error('[Brevo] email failed', subject, res.status, await res.text().catch(() => ''))
 }
 
+// Escape user/admin-supplied text before placing it in email HTML, so a value
+// like `<a href=...>` renders as literal text instead of live markup. Plain
+// Hebrew/Latin text, spaces and punctuation are untouched — no visible change.
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
 function eventEmailDetails(ev) {
   const heDate = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const [y, m, d] = (ev.date || '').split('-').map(Number)
   const dateStr = y ? heDate.format(new Date(y, m - 1, d)) : ev.date
   const timeStr = ev.time ? ` · ${ev.time}${ev.end_time ? '–' + ev.end_time : ''}` : ''
   const locationStr = ev.location ? ` · ${ev.location}` : ''
-  return `${dateStr}${timeStr}${locationStr}`
+  return escapeHtml(`${dateStr}${timeStr}${locationStr}`)
 }
 
 function buildConfirmationEmail(ev, participantName) {
   const details = eventEmailDetails(ev)
   return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
-    <h2 style="color:#152020;">שלום ${participantName},</h2>
-    <p>ההרשמה שלך לאירוע <strong>${ev.title}</strong> אושרה!</p>
+    <h2 style="color:#152020;">שלום ${escapeHtml(participantName)},</h2>
+    <p>ההרשמה שלך לאירוע <strong>${escapeHtml(ev.title)}</strong> אושרה!</p>
     <p style="color:#555;">${details}</p>
-    ${ev.confirmation_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${ev.confirmation_message.replace(/\n/g,'<br>')}</div>` : ''}
+    ${ev.confirmation_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${escapeHtml(ev.confirmation_message).replace(/\n/g,'<br>')}</div>` : ''}
     <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
   </div>`
 }
@@ -462,10 +470,10 @@ function buildConfirmationEmail(ev, participantName) {
 function buildReminderEmail(ev, participantName) {
   const details = eventEmailDetails(ev)
   return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
-    <h2 style="color:#152020;">שלום ${participantName},</h2>
-    <p>תזכורת — האירוע <strong>${ev.title}</strong> מתקיים <strong>מחר</strong>!</p>
+    <h2 style="color:#152020;">שלום ${escapeHtml(participantName)},</h2>
+    <p>תזכורת — האירוע <strong>${escapeHtml(ev.title)}</strong> מתקיים <strong>מחר</strong>!</p>
     <p style="color:#555;">${details}</p>
-    ${ev.reminder_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${ev.reminder_message.replace(/\n/g,'<br>')}</div>` : ''}
+    ${ev.reminder_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${escapeHtml(ev.reminder_message).replace(/\n/g,'<br>')}</div>` : ''}
     <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
   </div>`
 }
