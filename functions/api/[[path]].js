@@ -421,6 +421,21 @@ app.post('/user-auth/verify-otp', async c => {
   if (matches && withinLimit) {
     await c.env.DB.prepare('UPDATE users SET otp_code = NULL, otp_expires_at = NULL, otp_attempts = 0 WHERE id = ?')
       .bind(row.id).run()
+
+    // Claim any registrations this person made while logged out: attach their
+    // anonymous (user_id IS NULL) live rows to this account, matched by email.
+    // OR IGNORE skips a row that would collide with an existing live registration
+    // for the same event (partial unique index). Best-effort — never blocks login.
+    try {
+      await c.env.DB.prepare(
+        `UPDATE OR IGNORE participants
+            SET user_id = ?
+          WHERE user_id IS NULL
+            AND status != 'expired'
+            AND lower(email) = ?`
+      ).bind(row.id, normEmail).run()
+    } catch (e) { console.error('[auto-link] failed', e) }
+
     const token = await generateToken({ id: row.id, email: row.email, name: row.name }, 'user', jwtSecret(c.env))
     return c.json({ user: { id: row.id, name: row.name, email: row.email, phone: row.phone }, token })
   }
