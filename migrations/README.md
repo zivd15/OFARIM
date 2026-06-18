@@ -19,6 +19,11 @@ npx wrangler d1 execute ofarim --file=migrations/<file>.sql --remote
 | 0003 | `0003_price_to_agorot.sql` | — (data) | Rescales prices to **agorot** (`× 100`). **Run exactly once.** No-op if all prices are 0. |
 | 0004 | `0004_user_otp.sql` | `users.otp_code`, `users.otp_expires_at` | Passwordless OTP columns (nullable). |
 | 0005 | `0005_otp_attempts.sql` | `users.otp_attempts` | Brute-force attempt counter (default 0). |
+| 0006 | `0006_prevent_duplicates.sql` | Partial unique index `uniq_participants_user_event_active` | `(event_id, user_id) WHERE user_id IS NOT NULL AND status != 'expired'` — blocks duplicate active registrations. |
+| 0007 | `0007_couple_registration.sql` | `events.allow_couples`, `events.couple_price`; `participants.ticket_type`, `participants.spots` | Couple tickets hold 2 seats. |
+| 0008 | `0008_event_payment_link.sql` | `events.payment_link` | Per-event Bit/PayBox URL. |
+| 0009 | `0009_participant_notes.sql` | `participants.notes` | Optional free-text on registration. |
+| 0010 | `0010_email_content.sql` | `events.confirmation_message`, `events.reminder_message`; `participants.reminder_sent` | Per-event confirmation & 24h reminder email text. |
 
 ## ⚠️ One-time / non-idempotent
 

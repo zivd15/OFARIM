@@ -3,6 +3,43 @@
 Build history of the OFARIM backend/frontend hardening & feature work. Steps are
 feature milestones, not semver releases.
 
+## Step 10 — Security & reliability hardening
+- **Admin-role gate**: every event-management route (`GET/POST/PUT/DELETE /events…`,
+  `GET /events/:id`, `…/participants/:pid`) now requires a `role:"admin"` JWT via
+  `adminMiddleware`. Previously they used `authMiddleware`, so **any** authenticated user
+  could read all participants or mutate events.
+- **Email HTML-escaping**: confirmation/reminder email builders `escapeHtml()` all
+  participant- and admin-supplied values, closing an injection/phishing vector (the
+  `register` endpoint lets the caller control both the recipient and the `name`).
+- **Constant-time** Bearer compare on `POST /internal/send-reminders` (matches
+  `cleanup-holds`); `500` (fail closed) if `CRON_SECRET` is unset.
+- **Couple-hold sweep fix**: the expiry sweeper now releases the correct seat count by
+  **summing `spots`** (a couple hold = 2) instead of counting rows, and reconciles
+  `current_participants` against active spots for affected events.
+- **Auto-link on login**: `verify-otp` adopts the caller's anonymous (`user_id IS NULL`)
+  non-expired registrations by email via `UPDATE OR IGNORE`, so registrations made while
+  logged out appear in the personal area. Best-effort; never blocks sign-in.
+- **Pinned `@babel/standalone@7.26.4`** on `calendar.html` / `admin.html` — the unpinned
+  CDN had rolled to a breaking Babel 8, which failed to compile the in-browser JSX and
+  left both React pages blank.
+
+## Step 9 — Confirmation & 24-hour reminder emails
+- `events.confirmation_message` + `reminder_message`, `participants.reminder_sent`
+  (migration `0010`); per-event text edited in the admin form (empty = don't send).
+- Confirmation email (Brevo) on free-event registration and on admin `confirm-payment`.
+- `POST /api/internal/send-reminders` (GitHub Actions cron, `CRON_SECRET`) emails
+  confirmed participants of events happening **tomorrow**, then sets `reminder_sent`.
+
+## Step 8 — Couple tickets, payment links & notes
+- **Couple registration** (migration `0007`): `events.allow_couples` + `couple_price`;
+  `participants.ticket_type` (`single`|`couple`) + `spots` (1|2). The seat hold increments
+  by `spots`; a partial unique index (`uniq_participants_user_event_active`) blocks
+  duplicate **active** registrations while allowing re-registration after an expired hold.
+- **Per-event payment link** (migration `0008`, `events.payment_link`) — Bit/PayBox URL
+  shown in the post-registration UI.
+- **Registration notes** (migration `0009`, `participants.notes`) — optional free-text on
+  the registration form, surfaced in the admin participants modal.
+
 ## Step 7 — Rate limiting & Brevo email
 - `POST /user-auth/request-otp`: **60-second cooldown** per email (`429` with a Hebrew
   message) to protect email quota.

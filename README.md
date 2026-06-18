@@ -15,8 +15,8 @@ edge. No separate backend server, no frontend build step.
 | Frontend | Static HTML + vanilla JS; `admin.html` & `calendar.html` use React-via-Babel (CDN) |
 | Auth — admin | Email + password (PBKDF2), HS256 JWT |
 | Auth — user | **Passwordless OTP** by email (Brevo) + Cloudflare Turnstile |
-| Email | [Brevo](https://www.brevo.com) HTTP API |
-| Payments | Seat-hold booking engine (Bit-ready), agorot pricing |
+| Email | [Brevo](https://www.brevo.com) HTTP API — OTP codes + per-event confirmation & 24h reminder emails |
+| Payments | Seat-hold booking engine, per-event Bit/PayBox link, agorot pricing, single & couple tickets |
 | CI/CD | GitHub Actions → `wrangler pages deploy` on push to `main` |
 
 ## Repository layout
@@ -80,4 +80,4 @@ At minimum `JWT_SECRET`; for the OTP flow also `TURNSTILE_SECRET_KEY` and `BREVO
 - [docs/SECURITY.md](docs/SECURITY.md) — security model & hardening
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — env vars, secrets, migrations, deploy
 - [migrations/README.md](migrations/README.md) — migration run order
-- [CHANGELOG.md](CHANGELOG.md) — build history (Steps 1–7)
+- [CHANGELOG.md](CHANGELOG.md) — build history (Steps 1–10)

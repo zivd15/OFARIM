@@ -26,7 +26,16 @@ Create the **first** admin (one-time). Gated by `INIT_ADMIN_PASSWORD`.
 ### 🔑 `POST /api/internal/cleanup-holds`
 Sweeper that expires unpaid `pending` holds older than 15 min and releases their seats.
 Intended for a Cloudflare Cron Trigger. Requires `Authorization: Bearer <CRON_SECRET>`.
+Releases seats by **summing `spots`** (couple holds free 2), then reconciles
+`current_participants` against active spots for affected events.
 - `200` → `{ expired, events_released }`
+- `403` mismatch · `500` if `CRON_SECRET` is unset.
+
+### 🔑 `POST /api/internal/send-reminders`
+Emails confirmed participants of events happening **tomorrow** whose `reminder_message`
+is set, then flags `reminder_sent`. Driven by a GitHub Actions cron. Requires
+`Authorization: Bearer <CRON_SECRET>` (constant-time).
+- `200` → `{ reminded }`
 - `403` mismatch · `500` if `CRON_SECRET` is unset.
 
 ---
@@ -60,6 +69,9 @@ Flow: Turnstile verify → 60s cooldown → Brevo email → store code (10-min e
 { "email": "user@example.com", "code": "123456" }
 ```
 Atomic attempt-count + constant-time check; **max 5 attempts**, then the code is burned.
+On success, **auto-links** the caller's anonymous (`user_id IS NULL`) non-expired
+registrations to this account by email (`UPDATE OR IGNORE`), so registrations made while
+logged out appear under `/events/my-events`. Best-effort — never blocks login.
 - `200` → `{ user: { id, name, email, phone }, token }`
 - `401` invalid/expired/locked.
 
@@ -87,10 +99,13 @@ Events the authenticated user is registered for.
 Downloads an `.ics` calendar file for the event.
 
 ### 🔓 `POST /api/events/:id/register`
-Register (anonymous or authenticated). Body: `{ name, phone?, email? }`.
-Any client-supplied `user_id` is **ignored** (ownership comes from the JWT) — anti-IDOR.
+Register (anonymous or authenticated). Body: `{ name, phone?, email?, ticket_type?, notes? }`
+— `ticket_type` is `"single"` (default) or `"couple"` (holds 2 `spots`; rejected if the
+event has `allow_couples = 0`). Any client-supplied `user_id` is **ignored** (ownership
+comes from the JWT) — anti-IDOR. Anonymous rows (`user_id NULL`) are later **auto-linked**
+on login by email (see `verify-otp`).
 - `200` → `{ status: "confirmed" }` (free) · `{ status: "pending" }` (paid, 15-min hold) · `{ status: "waitlisted" }` (full)
-- `400` missing name · `404` event not found · `409` already registered.
+- `400` missing name / couple not allowed · `404` event not found · `409` already registered.
 
 ### 🤖 `POST /api/events/:id/confirm-payment`
 Confirm a pending hold (manual admin approval **or** payment webhook).

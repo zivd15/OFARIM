@@ -42,6 +42,31 @@ Defense in depth around a 6-digit code:
 > The legacy `users.password` column is vestigial (`''` for OTP users) and can never
 > satisfy `verifyPassword`, which requires a `pbkdf2:` prefix.
 
+## Authorization — admin vs user
+
+Two JWT roles share one scheme (`role: "admin" | "user"`), enforced by two middlewares:
+
+- **`authMiddleware`** — requires a *valid* JWT (either role). Used for user-owned routes
+  (`/events/my-events`, `/events/:id/cancel-registration`).
+- **`adminMiddleware`** — requires a valid JWT **and** `role === "admin"`, else `403`.
+  Guards every event-management route: `GET /events`, `GET /events/:id`,
+  `POST/PUT/DELETE /events…`, `DELETE /events/:id/participants/:pid`. These return full
+  participant PII (name/phone/email), so the role check is the control that keeps a
+  regular user from reading the roster or mutating events.
+
+> Both middlewares resolve `JWT_SECRET` outside the verify try/catch — a missing secret is
+> a `500`, never a silent downgrade. No token → `401`; valid non-admin on an admin route → `403`.
+
+## Outbound email (Brevo)
+
+- **HTML-escaping**: the confirmation and reminder email builders pass every
+  participant- and admin-supplied value through `escapeHtml()` before interpolation.
+  This matters because `POST /events/:id/register` is public and lets the caller control
+  **both** the recipient (`email`) and injected content (`name`); without escaping, an
+  attacker could have arbitrary HTML mailed from the verified sender (phishing).
+- The OTP email is sent **only to the address that requested it**, so its (unescaped)
+  `name` is at most self-XSS — see residual risks.
+
 ## Booking integrity
 
 - **No overbooking**: capacity is enforced by an atomic conditional `UPDATE` on
@@ -56,6 +81,8 @@ Defense in depth around a 6-digit code:
 
 - `POST /internal/cleanup-holds` — `Authorization: Bearer <CRON_SECRET>`, constant-time;
   `500` (fail closed) if `CRON_SECRET` is unset, `403` on mismatch.
+- `POST /internal/send-reminders` — same `CRON_SECRET` Bearer, **constant-time** compare;
+  `500` if unset, `403` on mismatch. (GitHub Actions cron — see CHANGELOG Step 9.)
 - `POST /events/:id/confirm-payment` — `X-Webhook-Secret` (constant-time) **or** a valid
   admin JWT.
 
@@ -71,8 +98,10 @@ These are known, deliberately deferred, and worth addressing before scale:
    concurrent burst could pass twice. Each still needs its own Turnstile token. An atomic
    `ON CONFLICT … DO UPDATE … WHERE … RETURNING` would close it fully.
 4. **Sender domain** must be Brevo-verified (SPF/DKIM) or OTP email lands in spam.
-5. **Self-XSS in OTP email** — the user's own `name` is interpolated into the email HTML
-   sent only to themselves; not an exploitable vector, but sanitize if reused elsewhere.
+5. **Self-XSS in OTP email** — the user's own `name` is still interpolated into the OTP
+   email HTML unescaped, but it's sent only to that same address, so it's self-XSS at
+   worst. The registrant-facing confirmation/reminder emails **are** now escaped (see
+   *Outbound email*); apply `escapeHtml()` to the OTP builder too if it's ever reused.
 
 ## Required secrets
 
