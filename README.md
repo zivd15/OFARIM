@@ -79,5 +79,6 @@ At minimum `JWT_SECRET`; for the OTP flow also `TURNSTILE_SECRET_KEY` and `BREVO
 - [docs/API.md](docs/API.md) — full endpoint reference
 - [docs/SECURITY.md](docs/SECURITY.md) — security model & hardening
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — env vars, secrets, migrations, deploy
+- [docs/STAGING.md](docs/STAGING.md) — staging/QA environment, rollback & branch protection
 - [migrations/README.md](migrations/README.md) — migration run order
 - [CHANGELOG.md](CHANGELOG.md) — build history (Steps 1–10)

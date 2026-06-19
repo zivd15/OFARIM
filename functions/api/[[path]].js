@@ -4,6 +4,10 @@ import { HTTPException } from 'hono/http-exception'
 
 const app = new Hono().basePath('/api')
 
+// Staging/QA gate. TRUE only when the Preview environment sets ENVIRONMENT="staging".
+// Production never sets this var, so every staging behavior gated on it is inert in prod.
+const isStaging = (c) => c?.env?.ENVIRONMENT === 'staging'
+
 // ── CORS (restricted) ─────────────────────────────────────────────────────────
 // Allow only local dev (http://localhost:8788) and production *.pages.dev.
 // Any other browser origin receives no Access-Control-Allow-Origin header and
@@ -32,8 +36,12 @@ app.use('*', cors({
 app.notFound(c => c.json({ error: 'Not found' }, 404))
 app.onError((err, c) => {
   if (err instanceof HTTPException) return err.getResponse()   // preserves our JSON 500s (e.g. missing JWT_SECRET)
-  console.error('Unhandled error:', err?.message || err)
-  return c.json({ error: 'Internal server error' }, 500)
+  console.error('Unhandled error:', err?.stack || err?.message || err)
+  if (isStaging(c)) {
+    // Staging: surface the exact cause for fast QA debugging.
+    return c.json({ error: 'Internal server error', message: err?.message, stack: err?.stack }, 500)
+  }
+  return c.json({ error: 'Internal server error' }, 500)   // prod: generic, no leakage
 })
 
 // ── JWT ──────────────────────────────────────────────────────────────────────
@@ -243,13 +251,16 @@ app.post('/internal/cleanup-holds', async c => {
   // Atomically flip every stale pending hold to 'expired' and get back exactly the
   // rows we changed. RETURNING means we never double-count and never touch a hold
   // that was confirmed (paid) between scan and update.
+  // Staging uses a 0-minute threshold so testers can release seats on demand
+  // (no 15-minute wait); production keeps the real 15-minute window.
+  const ageMinutes = isStaging(c) ? 0 : 15
   const { results: expired } = await c.env.DB.prepare(
     `UPDATE participants
         SET status = 'expired'
       WHERE status = 'pending'
-        AND created_at < datetime('now', '-15 minutes')
+        AND created_at < datetime('now', ?)
       RETURNING event_id, spots`
-  ).all()
+  ).bind(`-${ageMinutes} minutes`).all()
 
   if (!expired.length) return c.json({ expired: 0, events_released: 0 })
 
@@ -277,6 +288,69 @@ app.post('/internal/cleanup-holds', async c => {
   if (reconcileStmts.length) await c.env.DB.batch(reconcileStmts)
 
   return c.json({ expired: expired.length, events_released: perEvent.size })
+})
+
+// ── Staging-only QA endpoints (/api/staging/*) ────────────────────────────────
+// These exist ONLY when ENVIRONMENT=staging. In production the guard returns 404,
+// so the routes effectively don't exist there.
+app.use('/staging/*', async (c, next) => {
+  if (!isStaging(c)) return c.json({ error: 'Not found' }, 404)
+  await next()
+})
+
+// Admin fast-entry. Requires BOTH staging (the guard above) AND a matching
+// STAGING_ADMIN_TOKEN. Upserts a dummy admin into the staging DB and returns a
+// normal admin JWT, so the rest of the app's admin auth runs unchanged. The dummy
+// admin's password ('pbkdf2:disabled') can never satisfy verifyPassword, so this
+// account is reachable only via this endpoint.
+app.post('/staging/admin-login', async c => {
+  const provided = c.req.header('x-staging-token')
+  if (!c.env.STAGING_ADMIN_TOKEN || !constantTimeEqual(provided, c.env.STAGING_ADMIN_TOKEN)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  const email = 'qa-admin@staging.local'
+  let admin = await c.env.DB.prepare('SELECT id, name, email FROM admins WHERE email = ?').bind(email).first()
+  if (!admin) {
+    admin = await c.env.DB.prepare(
+      "INSERT INTO admins (name, email, password) VALUES ('QA Admin', ?, 'pbkdf2:disabled') RETURNING id, name, email"
+    ).bind(email).first()
+  }
+  const token = await generateToken({ id: admin.id, email: admin.email, name: admin.name }, 'admin', jwtSecret(c.env))
+  return c.json({ token, admin })
+})
+
+// Scenario generator. Body: { scenario, capacity?, waitlist? }.
+// 'full_with_waitlist' → a small-capacity event filled with 'confirmed' rows plus
+// N 'waitlisted' rows, so waitlist/overcapacity behavior is testable in one call.
+app.post('/staging/seed', async c => {
+  const body = await c.req.json().catch(() => ({}))
+  const scenario = body.scenario || 'full_with_waitlist'
+  if (scenario !== 'full_with_waitlist') return c.json({ error: 'Unknown scenario' }, 400)
+
+  const capacity = Number.isInteger(body.capacity) ? body.capacity : 3
+  const waitlist = Number.isInteger(body.waitlist) ? body.waitlist : 10
+  const date = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10)   // +7 days
+
+  const ev = await c.env.DB.prepare(
+    `INSERT INTO events (title, date, time, location, max_participants, price, current_participants)
+     VALUES ('QA: Full + Waitlist', ?, '10:00', 'QA Hall', ?, 0, ?)
+     RETURNING id`
+  ).bind(date, capacity, capacity).first()
+
+  const stmts = []
+  for (let i = 0; i < capacity; i++) {
+    stmts.push(c.env.DB.prepare(
+      "INSERT INTO participants (event_id, name, email, status, ticket_type, spots, created_at) VALUES (?, ?, ?, 'confirmed', 'single', 1, datetime('now'))"
+    ).bind(ev.id, `Confirmed ${i + 1}`, `seed-c${i + 1}@test.local`))
+  }
+  for (let i = 0; i < waitlist; i++) {
+    stmts.push(c.env.DB.prepare(
+      "INSERT INTO participants (event_id, name, email, status, ticket_type, spots, created_at) VALUES (?, ?, ?, 'waitlisted', 'single', 1, datetime('now'))"
+    ).bind(ev.id, `Waitlisted ${i + 1}`, `seed-w${i + 1}@test.local`))
+  }
+  await c.env.DB.batch(stmts)
+
+  return c.json({ scenario, event_id: ev.id, capacity, confirmed: capacity, waitlisted: waitlist })
 })
 
 // ── Admin auth (/api/auth/*) ──────────────────────────────────────────────────
@@ -337,49 +411,61 @@ app.post('/user-auth/request-otp', async c => {
 
   // Anti-bot gate: a valid Turnstile token is required before we touch the DB or
   // (later) spend email quota. Fail closed if the secret isn't configured.
-  const secret = c.env.TURNSTILE_SECRET_KEY
-  if (!secret) return c.json({ error: 'Turnstile is not configured' }, 500)
-  const human = await verifyTurnstile(turnstileToken, secret, c.req.header('cf-connecting-ip'))
-  if (!human) return c.json({ error: 'Bot verification failed' }, 403)
+  // Skipped in staging so testers don't need a real widget token.
+  if (!isStaging(c)) {
+    const secret = c.env.TURNSTILE_SECRET_KEY
+    if (!secret) return c.json({ error: 'Turnstile is not configured' }, 500)
+    const human = await verifyTurnstile(turnstileToken, secret, c.req.header('cf-connecting-ip'))
+    if (!human) return c.json({ error: 'Bot verification failed' }, 403)
+  }
 
   const normEmail = email.trim().toLowerCase()
 
   // 60-second cooldown: a live code with >9 of its 10 minutes left was issued less
   // than a minute ago — refuse to send another and protect our email quota.
-  const recent = await c.env.DB.prepare(
-    `SELECT 1 AS x FROM users
-      WHERE email = ? AND otp_code IS NOT NULL AND otp_expires_at > datetime('now', '+9 minutes')`
-  ).bind(normEmail).first()
-  if (recent) return c.json({ error: 'נא להמתין 60 שניות לפני בקשת קוד חדש.' }, 429)
-
-  // Email provider must be configured (fail closed).
-  const brevoKey = c.env.BREVO_API_KEY
-  if (!brevoKey) return c.json({ error: 'Email service is not configured' }, 500)
+  // Skipped in staging so testers can hammer the flow.
+  if (!isStaging(c)) {
+    const recent = await c.env.DB.prepare(
+      `SELECT 1 AS x FROM users
+        WHERE email = ? AND otp_code IS NOT NULL AND otp_expires_at > datetime('now', '+9 minutes')`
+    ).bind(normEmail).first()
+    if (recent) return c.json({ error: 'נא להמתין 60 שניות לפני בקשת קוד חדש.' }, 429)
+  }
 
   const code = generateOTP()
 
-  // Deliver via Brevo BEFORE persisting, so a delivery failure doesn't lock the user
-  // behind the cooldown holding a code they never received.
-  const emailPayload = {
-    sender: { name: 'OFARIM', email: 'ofarim.grow@gmail.com' },
-    to: [{ email: normEmail }],
-    subject: 'קוד הכניסה שלך למערכת עופרים',
-    htmlContent: `<div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
-                    <h2>שלום${name ? ' ' + name : ''},</h2>
-                    <p>קוד הכניסה שלך למערכת עופרים הוא:</p>
-                    <h1 style="letter-spacing: 5px; background: #f4f4f5; padding: 10px; display: inline-block; border-radius: 5px;">${code}</h1>
-                    <p>הקוד בתוקף ל-10 דקות.</p>
-                    <p>אם לא ביקשת קוד זה, אנא התעלם מהודעה זו.</p>
-                  </div>`,
-  }
-  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-    method: 'POST',
-    headers: { 'accept': 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
-    body: JSON.stringify(emailPayload),
-  })
-  if (!response.ok) {
-    console.error('[Brevo] send failed', response.status, await response.text().catch(() => ''))
-    return c.json({ error: 'Failed to send verification email' }, 500)
+  // Deliver the code. In staging we NEVER touch Brevo — the code is logged and
+  // returned in the response (see below) so no real email ever leaves the system.
+  if (isStaging(c)) {
+    console.log(`[staging-otp] ${normEmail} -> ${code}`)
+  } else {
+    // Email provider must be configured (fail closed).
+    const brevoKey = c.env.BREVO_API_KEY
+    if (!brevoKey) return c.json({ error: 'Email service is not configured' }, 500)
+
+    // Deliver via Brevo BEFORE persisting, so a delivery failure doesn't lock the user
+    // behind the cooldown holding a code they never received.
+    const emailPayload = {
+      sender: { name: 'OFARIM', email: 'ofarim.grow@gmail.com' },
+      to: [{ email: normEmail }],
+      subject: 'קוד הכניסה שלך למערכת עופרים',
+      htmlContent: `<div dir="rtl" style="font-family: Arial, sans-serif; text-align: right;">
+                      <h2>שלום${name ? ' ' + name : ''},</h2>
+                      <p>קוד הכניסה שלך למערכת עופרים הוא:</p>
+                      <h1 style="letter-spacing: 5px; background: #f4f4f5; padding: 10px; display: inline-block; border-radius: 5px;">${code}</h1>
+                      <p>הקוד בתוקף ל-10 דקות.</p>
+                      <p>אם לא ביקשת קוד זה, אנא התעלם מהודעה זו.</p>
+                    </div>`,
+    }
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
+      body: JSON.stringify(emailPayload),
+    })
+    if (!response.ok) {
+      console.error('[Brevo] send failed', response.status, await response.text().catch(() => ''))
+      return c.json({ error: 'Failed to send verification email' }, 500)
+    }
   }
 
   // Persist the code (resets the brute-force counter). password '' is a vestigial
@@ -394,7 +480,11 @@ app.post('/user-auth/request-otp', async c => {
       name = COALESCE(NULLIF(excluded.name, ''), users.name)
   `).bind(name?.trim() || '', normEmail, code).run()
 
-  return c.json({ message: 'If that email is valid, a verification code has been sent.' }, 200)
+  // Staging returns the code directly so testers log in without any email.
+  return c.json({
+    message: 'If that email is valid, a verification code has been sent.',
+    ...(isStaging(c) ? { dev_otp: code } : {}),
+  }, 200)
 })
 
 // Step 2: verify. One atomic statement matches the code, checks expiry, and clears
@@ -415,7 +505,7 @@ app.post('/user-auth/verify-otp', async c => {
 
   if (!row) return c.json({ error: 'Invalid or expired code' }, 401)
 
-  const withinLimit = row.otp_attempts <= MAX_OTP_ATTEMPTS         // this attempt is the Nth (1..5)
+  const withinLimit = isStaging(c) ? true : (row.otp_attempts <= MAX_OTP_ATTEMPTS)  // no lockout in staging
   const matches = constantTimeEqual(codeStr, row.otp_code)         // constant-time, not SQL '='
 
   if (matches && withinLimit) {

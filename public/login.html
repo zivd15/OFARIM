@@ -216,7 +216,13 @@
       document.getElementById('emailEcho').textContent = email;
       document.getElementById('emailForm').style.display = 'none';
       document.getElementById('otpForm').style.display = '';
-      showInfo('הקוד נשלח. בדקו את תיבת האימייל שלכם.');
+      if (data.dev_otp) {
+        // Staging only: the API returned the code directly (no email sent). Prefill + show it.
+        document.getElementById('code').value = data.dev_otp;
+        showInfo('STAGING — הקוד: ' + data.dev_otp);
+      } else {
+        showInfo('הקוד נשלח. בדקו את תיבת האימייל שלכם.');
+      }
       document.getElementById('code').focus();
     } catch(err) { showError('שגיאת שרת: ' + err.message); resetTurnstile(); }
     finally { btn.disabled = false; btn.textContent = 'שליחת קוד'; }
@@ -247,5 +253,6 @@
     resetTurnstile();
   }
 </script>
+<script src="/staging-banner.js"></script>
 </body>
 </html>
