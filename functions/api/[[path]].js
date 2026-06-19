@@ -547,6 +547,11 @@ app.get('/user-auth/me', authMiddleware, async c => {
 // ── Email helper ─────────────────────────────────────────────────────────────
 
 async function sendBrevoEmail(env, { to, name, subject, htmlContent }) {
+  // Staging outbound-email embargo: never send real mail from the QA sandbox.
+  if (env?.ENVIRONMENT === 'staging') {
+    console.log(`[staging-email] would send "${subject}" to ${to}`)
+    return
+  }
   const brevoKey = env.BREVO_API_KEY
   if (!brevoKey) return
   const payload = {
@@ -598,6 +603,27 @@ function buildReminderEmail(ev, participantName) {
     <p>תזכורת — האירוע <strong>${escapeHtml(ev.title)}</strong> מתקיים <strong>מחר</strong>!</p>
     <p style="color:#555;">${details}</p>
     ${ev.reminder_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${escapeHtml(ev.reminder_message).replace(/\n/g,'<br>')}</div>` : ''}
+    <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
+  </div>`
+}
+
+// Admin notification sent to ofarim.grow@gmail.com on every new registration —
+// including pending (unpaid) and waitlist. Includes event, registrant name,
+// status, and contact.
+function buildAdminNotifyEmail(ev, p, status) {
+  const details = eventEmailDetails(ev)
+  const statusHe = status === 'confirmed' ? 'מאושר'
+    : status === 'pending' ? 'ממתין לתשלום'
+    : status === 'waitlisted' ? 'רשימת המתנה'
+    : status
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
+    <h2 style="color:#152020;">הרשמה חדשה לאירוע</h2>
+    <p><strong>אירוע:</strong> ${escapeHtml(ev.title)}</p>
+    <p style="color:#555;">${details}</p>
+    <p><strong>שם הנרשם:</strong> ${escapeHtml(p.name)}</p>
+    <p><strong>סטטוס:</strong> ${statusHe}</p>
+    ${p.phone ? `<p><strong>טלפון:</strong> ${escapeHtml(p.phone)}</p>` : ''}
+    ${p.email ? `<p><strong>אימייל:</strong> ${escapeHtml(p.email)}</p>` : ''}
     <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
   </div>`
 }
@@ -781,6 +807,22 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
     }
     throw err
   }
+
+  // Notify the admin of every new registration — confirmed, pending (unpaid) AND
+  // waitlisted. Best-effort: a mail failure must never break the registration.
+  // Embargoed in staging (sendBrevoEmail logs instead of sending).
+  try {
+    await sendBrevoEmail(c.env, {
+      to: 'ofarim.grow@gmail.com',
+      name: 'OFARIM',
+      subject: `הרשמה חדשה — ${event.title}`,
+      htmlContent: buildAdminNotifyEmail(
+        event,
+        { name: name.trim(), email: email?.trim() || '', phone: phone?.trim() || '' },
+        status
+      ),
+    })
+  } catch (e) { console.error('[admin-notify] failed', e) }
 
   if (held) {
     if (isFree) {
