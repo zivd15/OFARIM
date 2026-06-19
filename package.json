@@ -8,7 +8,10 @@
     "deploy": "wrangler pages deploy public",
     "db:create": "wrangler d1 create ofarim",
     "db:init": "wrangler d1 execute ofarim --file=schema.sql",
-    "db:init:remote": "wrangler d1 execute ofarim --file=schema.sql --remote"
+    "db:init:remote": "wrangler d1 execute ofarim --file=schema.sql --remote",
+    "db:export:prod": "wrangler d1 export ofarim --remote --no-data --output=schema.sql",
+    "db:create:staging": "wrangler d1 create ofarim-staging",
+    "db:schema:staging": "wrangler d1 execute ofarim-staging --remote --file=schema.sql"
   },
   "dependencies": {
     "hono": "^4.6.0"
