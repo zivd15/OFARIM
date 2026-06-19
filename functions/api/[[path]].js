@@ -4,6 +4,10 @@ import { HTTPException } from 'hono/http-exception'
 
 const app = new Hono().basePath('/api')
 
+// Staging/QA gate. TRUE only when the Preview environment sets ENVIRONMENT="staging".
+// Production never sets this var, so every staging behavior gated on it is inert in prod.
+const isStaging = (c) => c?.env?.ENVIRONMENT === 'staging'
+
 // ── CORS (restricted) ─────────────────────────────────────────────────────────
 // Allow only local dev (http://localhost:8788) and production *.pages.dev.
 // Any other browser origin receives no Access-Control-Allow-Origin header and
@@ -32,8 +36,12 @@ app.use('*', cors({
 app.notFound(c => c.json({ error: 'Not found' }, 404))
 app.onError((err, c) => {
   if (err instanceof HTTPException) return err.getResponse()   // preserves our JSON 500s (e.g. missing JWT_SECRET)
-  console.error('Unhandled error:', err?.message || err)
-  return c.json({ error: 'Internal server error' }, 500)
+  console.error('Unhandled error:', err?.stack || err?.message || err)
+  if (isStaging(c)) {
+    // Staging: surface the exact cause for fast QA debugging.
+    return c.json({ error: 'Internal server error', message: err?.message, stack: err?.stack }, 500)
+  }
+  return c.json({ error: 'Internal server error' }, 500)   // prod: generic, no leakage
 })
 
 // ── JWT ──────────────────────────────────────────────────────────────────────
