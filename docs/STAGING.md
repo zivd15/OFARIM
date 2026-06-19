@@ -52,21 +52,30 @@ curl -s -X POST https://staging.ofarim.pages.dev/api/internal/cleanup-holds \
   -H 'Authorization: Bearer <CRON_SECRET>'
 ```
 
-## Secrets matrix (Preview environment)
+## Staging config lives in `wrangler.toml` (not the dashboard)
 
-Set these on the Cloudflare dashboard → **ofarim** → Settings → Variables and Secrets → environment = **Preview**:
+**Important:** staging deploys via **Direct Upload** (`wrangler pages deploy --branch=staging`,
+run by `.github/workflows/deploy-staging.yml`). Direct-Upload preview deployments
+**do not read the dashboard's Preview secrets** — they only read `wrangler.toml`.
+So all staging config lives in `wrangler.toml [env.preview]` (and the `DB` binding
+there points at `ofarim-staging`):
 
-| Secret/var | Needed in staging? | Notes |
+| Key | Value | Purpose |
 |---|---|---|
-| `ENVIRONMENT` | **Yes** (`staging`) | The master switch. Comes from `wrangler.toml`; verify it's present on Preview. |
-| `JWT_SECRET` | **Yes** | Use a value distinct from production. |
-| `STAGING_ADMIN_TOKEN` | **Yes** | Long random string — guards the admin fast-entry endpoint. |
-| `CRON_SECRET` | **Yes** | Guards `cleanup-holds`. |
-| `INIT_ADMIN_PASSWORD` | Optional | Only if you bootstrap a real admin via `/setup-admin`. |
-| `BREVO_API_KEY` | **No** | Staging never sends email. |
-| `TURNSTILE_SECRET_KEY` | **No** | Staging skips Turnstile. |
+| `ENVIRONMENT` | `staging` | The master switch |
+| `JWT_SECRET` | staging-only sandbox value | Signs throwaway staging tokens |
+| `CRON_SECRET` | staging-only sandbox value | Guards `cleanup-holds` |
+| `STAGING_ADMIN_TOKEN` | `staging-admin-sandbox-token-v3p8` | The `X-Staging-Token` for admin fast-entry |
+| `DB` (binding) | `ofarim-staging` | Separate database |
 
-The Preview **D1 binding** (`DB → ofarim-staging`) and `ENVIRONMENT` come from `wrangler.toml [env.preview]`. If a deploy shows they didn't apply, set them in the dashboard (D1 bindings → Preview; Variables → Preview).
+These are **safe to keep in the repo**: the staging DB holds no real data, the staging
+`JWT_SECRET` signs tokens valid only on the empty sandbox, and the admin token opens an
+admin panel with nothing real in it. They are completely independent of production —
+production uses its own dashboard secrets and never sets `ENVIRONMENT`.
+
+`BREVO_API_KEY` and `TURNSTILE_SECRET_KEY` are **not needed** in staging (email and the
+bot check are bypassed). Any Preview secrets set in the dashboard are simply unused by
+Direct-Upload deploys and can be left or removed.
 
 ## Deploy & promotion flow
 

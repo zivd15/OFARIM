@@ -42,6 +42,14 @@ database_id = "f14040c6-8278-4e42-b2cf-ae44675f54ff"
 #   Settings → Functions → D1 bindings → (Preview) → DB = ofarim-staging
 [env.preview.vars]
 ENVIRONMENT = "staging"
+# Staging-only values for the data-less QA sandbox. These are NOT production
+# secrets: this JWT_SECRET signs throwaway tokens for the empty ofarim-staging DB,
+# and STAGING_ADMIN_TOKEN opens an admin panel with no real data. Direct-Upload
+# preview deploys (wrangler pages deploy --branch=staging) only read wrangler.toml,
+# not dashboard Preview secrets — so the staging config must live here to apply.
+JWT_SECRET = "staging-only-jwt-key-sandbox-no-real-data-q7x2"
+CRON_SECRET = "staging-only-cron-secret-sandbox-k9m4"
+STAGING_ADMIN_TOKEN = "staging-admin-sandbox-token-v3p8"
 
 [[env.preview.d1_databases]]
 binding = "DB"
