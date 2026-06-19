@@ -51,6 +51,9 @@ function LoginScreen({ onLogin }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Shown only on non-production hosts (staging preview). Hidden on the live site.
+  const isStagingHost = location.hostname !== 'ofarim.pages.dev' && location.hostname !== 'www.ofarim.pages.dev';
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError(''); setLoading(true);
@@ -59,6 +62,24 @@ function LoginScreen({ onLogin }) {
       authToken = data.token;
       sessionStorage.setItem('ofarim_admin_token', data.token);
       onLogin(data.user);
+    } catch (err) { setError(err.message); }
+    setLoading(false);
+  }
+
+  // Staging fast-track: skip the password and enter via the staging backdoor.
+  // Only reachable on staging (the /api/staging/* routes 404 in production).
+  async function handleStagingLogin() {
+    setError(''); setLoading(true);
+    try {
+      const res = await fetch('/api/staging/admin-login', {
+        method: 'POST',
+        headers: { 'X-Staging-Token': 'staging-admin-sandbox-token-v3p8' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Staging admin login failed');
+      authToken = data.token;
+      sessionStorage.setItem('ofarim_admin_token', data.token);
+      onLogin(data.admin);
     } catch (err) { setError(err.message); }
     setLoading(false);
   }
@@ -80,6 +101,12 @@ function LoginScreen({ onLogin }) {
             כניסה
           </button>
         </form>
+        {isStagingHost && (
+          <button type="button" onClick={handleStagingLogin} disabled={loading}
+            className="w-full mt-3 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50">
+            ⚡ כניסת אדמין מהירה (STAGING)
+          </button>
+        )}
       </div>
     </div>
   );
