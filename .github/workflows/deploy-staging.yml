@@ -1,0 +1,28 @@
+name: Deploy staging to Cloudflare Pages
+
+# Deploys the `staging` branch as a Cloudflare Pages PREVIEW deployment
+# (https://staging.ofarim.pages.dev). --branch=staging keeps it a preview, so
+# production (the `main` branch) is never touched. The preview runs against the
+# ofarim-staging D1 + ENVIRONMENT=staging configured for the Preview environment.
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install
+
+      - name: Deploy preview (staging branch)
+        run: npx wrangler pages deploy public --project-name=ofarim --branch=staging --commit-dirty=true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: b7f764b89247019e1cd85c6d5064075a
