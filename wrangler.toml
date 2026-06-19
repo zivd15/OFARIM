@@ -31,3 +31,19 @@ database_id = "f14040c6-8278-4e42-b2cf-ae44675f54ff"
 #
 # For LOCAL dev (`wrangler pages dev`), put the same keys in a gitignored .dev.vars file.
 # Turnstile local test keys: site 1x00000000000000000000AA / secret 1x0000000000000000000000000000000AA
+
+# ── Preview (staging) environment ─────────────────────────────────────────────
+# Applies ONLY to non-production (preview) branch deploys — e.g. the `staging` branch
+# at https://staging.ofarim.pages.dev. Production keeps the top-level `ofarim` DB and
+# never sets ENVIRONMENT, so all staging behaviors are inert in production.
+#
+# NOTE: if Pages does not pick these up from wrangler.toml, set them in the dashboard:
+#   Settings → Variables and Secrets → (Preview) → ENVIRONMENT = staging
+#   Settings → Functions → D1 bindings → (Preview) → DB = ofarim-staging
+[env.preview.vars]
+ENVIRONMENT = "staging"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "ofarim-staging"
+database_id = "d22cfbe0-d660-4788-b61b-b90aceb80bd9"
