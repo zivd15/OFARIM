@@ -251,13 +251,16 @@ app.post('/internal/cleanup-holds', async c => {
   // Atomically flip every stale pending hold to 'expired' and get back exactly the
   // rows we changed. RETURNING means we never double-count and never touch a hold
   // that was confirmed (paid) between scan and update.
+  // Staging uses a 0-minute threshold so testers can release seats on demand
+  // (no 15-minute wait); production keeps the real 15-minute window.
+  const ageMinutes = isStaging(c) ? 0 : 15
   const { results: expired } = await c.env.DB.prepare(
     `UPDATE participants
         SET status = 'expired'
       WHERE status = 'pending'
-        AND created_at < datetime('now', '-15 minutes')
+        AND created_at < datetime('now', ?)
       RETURNING event_id, spots`
-  ).all()
+  ).bind(`-${ageMinutes} minutes`).all()
 
   if (!expired.length) return c.json({ expired: 0, events_released: 0 })
 
@@ -285,6 +288,69 @@ app.post('/internal/cleanup-holds', async c => {
   if (reconcileStmts.length) await c.env.DB.batch(reconcileStmts)
 
   return c.json({ expired: expired.length, events_released: perEvent.size })
+})
+
+// ── Staging-only QA endpoints (/api/staging/*) ────────────────────────────────
+// These exist ONLY when ENVIRONMENT=staging. In production the guard returns 404,
+// so the routes effectively don't exist there.
+app.use('/staging/*', async (c, next) => {
+  if (!isStaging(c)) return c.json({ error: 'Not found' }, 404)
+  await next()
+})
+
+// Admin fast-entry. Requires BOTH staging (the guard above) AND a matching
+// STAGING_ADMIN_TOKEN. Upserts a dummy admin into the staging DB and returns a
+// normal admin JWT, so the rest of the app's admin auth runs unchanged. The dummy
+// admin's password ('pbkdf2:disabled') can never satisfy verifyPassword, so this
+// account is reachable only via this endpoint.
+app.post('/staging/admin-login', async c => {
+  const provided = c.req.header('x-staging-token')
+  if (!c.env.STAGING_ADMIN_TOKEN || !constantTimeEqual(provided, c.env.STAGING_ADMIN_TOKEN)) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+  const email = 'qa-admin@staging.local'
+  let admin = await c.env.DB.prepare('SELECT id, name, email FROM admins WHERE email = ?').bind(email).first()
+  if (!admin) {
+    admin = await c.env.DB.prepare(
+      "INSERT INTO admins (name, email, password) VALUES ('QA Admin', ?, 'pbkdf2:disabled') RETURNING id, name, email"
+    ).bind(email).first()
+  }
+  const token = await generateToken({ id: admin.id, email: admin.email, name: admin.name }, 'admin', jwtSecret(c.env))
+  return c.json({ token, admin })
+})
+
+// Scenario generator. Body: { scenario, capacity?, waitlist? }.
+// 'full_with_waitlist' → a small-capacity event filled with 'confirmed' rows plus
+// N 'waitlisted' rows, so waitlist/overcapacity behavior is testable in one call.
+app.post('/staging/seed', async c => {
+  const body = await c.req.json().catch(() => ({}))
+  const scenario = body.scenario || 'full_with_waitlist'
+  if (scenario !== 'full_with_waitlist') return c.json({ error: 'Unknown scenario' }, 400)
+
+  const capacity = Number.isInteger(body.capacity) ? body.capacity : 3
+  const waitlist = Number.isInteger(body.waitlist) ? body.waitlist : 10
+  const date = new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10)   // +7 days
+
+  const ev = await c.env.DB.prepare(
+    `INSERT INTO events (title, date, time, location, max_participants, price, current_participants)
+     VALUES ('QA: Full + Waitlist', ?, '10:00', 'QA Hall', ?, 0, ?)
+     RETURNING id`
+  ).bind(date, capacity, capacity).first()
+
+  const stmts = []
+  for (let i = 0; i < capacity; i++) {
+    stmts.push(c.env.DB.prepare(
+      "INSERT INTO participants (event_id, name, email, status, ticket_type, spots, created_at) VALUES (?, ?, ?, 'confirmed', 'single', 1, datetime('now'))"
+    ).bind(ev.id, `Confirmed ${i + 1}`, `seed-c${i + 1}@test.local`))
+  }
+  for (let i = 0; i < waitlist; i++) {
+    stmts.push(c.env.DB.prepare(
+      "INSERT INTO participants (event_id, name, email, status, ticket_type, spots, created_at) VALUES (?, ?, ?, 'waitlisted', 'single', 1, datetime('now'))"
+    ).bind(ev.id, `Waitlisted ${i + 1}`, `seed-w${i + 1}@test.local`))
+  }
+  await c.env.DB.batch(stmts)
+
+  return c.json({ scenario, event_id: ev.id, capacity, confirmed: capacity, waitlisted: waitlist })
 })
 
 // ── Admin auth (/api/auth/*) ──────────────────────────────────────────────────
