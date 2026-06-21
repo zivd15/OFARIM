@@ -47,11 +47,11 @@ routing; D1 is reached via `c.env.DB`. Static assets are served directly by Page
 ```
 pending ──pay──▶ confirmed
    │
-   └──15 min, unpaid──▶ expired   (seat released)
+   └──12 h, unpaid──▶ expired   (seat released)
 
 (event full at hold time) ──▶ waitlisted
 ```
-- `pending` — seat held, awaiting payment (15-minute window).
+- `pending` — seat held, awaiting payment (12-hour window).
 - `confirmed` — paid, or a free-event registration (instant).
 - `waitlisted` — event was full when they registered (no seat counted).
 - `expired` — hold lapsed unpaid; excluded from all active counts.
@@ -77,7 +77,7 @@ UPDATE events
 A cron target (protected by `CRON_SECRET`) that releases unpaid holds:
 ```sql
 UPDATE participants SET status = 'expired'
- WHERE status = 'pending' AND created_at < datetime('now', '-15 minutes')
+ WHERE status = 'pending' AND created_at < datetime('now', '-12 hours')
  RETURNING event_id, spots;
 ```
 `RETURNING` yields exactly the rows it flipped (never touches a hold confirmed

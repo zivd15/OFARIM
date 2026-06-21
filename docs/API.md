@@ -24,7 +24,7 @@ Create the **first** admin (one-time). Gated by `INIT_ADMIN_PASSWORD`.
 - `403` → initialization disabled, wrong secret, or an admin already exists.
 
 ### 🔑 `POST /api/internal/cleanup-holds`
-Sweeper that expires unpaid `pending` holds older than 15 min and releases their seats.
+Sweeper that expires unpaid `pending` holds older than 12 hours and releases their seats.
 Intended for a Cloudflare Cron Trigger. Requires `Authorization: Bearer <CRON_SECRET>`.
 Releases seats by **summing `spots`** (couple holds free 2), then reconciles
 `current_participants` against active spots for affected events.

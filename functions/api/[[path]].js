@@ -251,16 +251,17 @@ app.post('/internal/cleanup-holds', async c => {
   // Atomically flip every stale pending hold to 'expired' and get back exactly the
   // rows we changed. RETURNING means we never double-count and never touch a hold
   // that was confirmed (paid) between scan and update.
-  // Staging uses a 0-minute threshold so testers can release seats on demand
-  // (no 15-minute wait); production keeps the real 15-minute window.
-  const ageMinutes = isStaging(c) ? 0 : 15
+  // Staging releases holds instantly (0 min) so testers don't wait; production
+  // gives a 12-hour window to complete the external (Bit/PayBox) payment before
+  // an unpaid hold is expired and its seat released.
+  const ageModifier = isStaging(c) ? '-0 minutes' : '-12 hours'
   const { results: expired } = await c.env.DB.prepare(
     `UPDATE participants
         SET status = 'expired'
       WHERE status = 'pending'
         AND created_at < datetime('now', ?)
       RETURNING event_id, spots`
-  ).bind(`-${ageMinutes} minutes`).all()
+  ).bind(ageModifier).all()
 
   if (!expired.length) return c.json({ expired: 0, events_released: 0 })
 
@@ -787,7 +788,7 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   ).bind(spots, event.id, spots).first()
 
   // Free events skip the Bit hold: a secured seat is confirmed immediately.
-  // Paid events get a 'pending' hold the sweeper can expire after 15 minutes.
+  // Paid events get a 'pending' hold the sweeper can expire after 12 hours.
   const status = held ? (isFree ? 'confirmed' : 'pending') : 'waitlisted'
 
   try {
@@ -837,7 +838,7 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
       }
       return c.json({ status: 'confirmed', message: 'נרשמת בהצלחה! המקום שלך מאושר.' }, 200)
     }
-    return c.json({ status: 'pending', message: 'המקום שמור. יש לך 15 דקות לסיים את התשלום.' }, 200)
+    return c.json({ status: 'pending', message: 'המקום שמור. יש לך 12 שעות לסיים את התשלום.' }, 200)
   }
   return c.json({ status: 'waitlisted', message: 'האירוע מלא. נוספת לרשימת ההמתנה.' }, 200)
 })
