@@ -21,7 +21,7 @@ Every QA behavior is gated in the API by `isStaging(c)` (`c.env.ENVIRONMENT === 
 | **Login OTP** | Emailed via Brevo | **No email** — code is logged and returned as `dev_otp` in the response (shown on the login screen) |
 | **Turnstile** (anti-bot) | Enforced | Skipped |
 | **OTP cooldown / 5-attempt lock** | Enforced | Skipped |
-| **Seat-hold expiry** (`/internal/cleanup-holds`) | 15-minute window | **0 minutes** — releases unpaid holds instantly on demand |
+| **Seat-hold expiry** (`/internal/cleanup-holds`) | 12-hour window | **0 minutes** — releases unpaid holds instantly on demand |
 | **Error responses** | Generic "Internal server error" | Full `message` + `stack` |
 | **Admin entry** | Email-code login | `POST /api/staging/admin-login` returns an admin token instantly |
 | **Mock data** | — | `POST /api/staging/seed` builds scenarios in one call |
@@ -46,7 +46,7 @@ curl -s -X POST https://staging.ofarim.pages.dev/api/staging/seed \
 # → { event_id, confirmed:3, waitlisted:10 }
 ```
 
-**Release unpaid seats instantly** (no 15-minute wait):
+**Release unpaid seats instantly** (no 12-hour wait):
 ```bash
 curl -s -X POST https://staging.ofarim.pages.dev/api/internal/cleanup-holds \
   -H 'Authorization: Bearer <CRON_SECRET>'
