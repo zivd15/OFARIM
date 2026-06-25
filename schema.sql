@@ -55,3 +55,15 @@ CREATE UNIQUE INDEX uniq_users_email
 CREATE UNIQUE INDEX uniq_participants_user_event_active
   ON participants(event_id, user_id)
   WHERE user_id IS NOT NULL AND status != 'expired';
+
+-- Migration 004: analytics page_views table
+CREATE TABLE IF NOT EXISTS page_views (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  page        TEXT    NOT NULL,
+  session_id  TEXT    NOT NULL,
+  country     TEXT,
+  referrer    TEXT,
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_pv_created_at ON page_views(created_at);
+CREATE INDEX IF NOT EXISTS idx_pv_session    ON page_views(session_id);
