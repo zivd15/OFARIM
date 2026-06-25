@@ -1070,24 +1070,32 @@ app.post('/analytics/hit', async c => {
   if (!page || !sessionId) return c.json({ ok: false }, 400)
 
   const country = c.req.header('CF-IPCountry') || null
-  await c.env.DB.prepare(
-    'INSERT INTO page_views (page, session_id, country, referrer) VALUES (?, ?, ?, ?)'
-  ).bind(page, sessionId, country, referrer || null).run()
-
+  try {
+    await c.env.DB.prepare(
+      'INSERT INTO page_views (page, session_id, country, referrer) VALUES (?, ?, ?, ?)'
+    ).bind(page, sessionId, country, referrer || null).run()
+  } catch (e) {
+    console.error('analytics/hit insert failed:', e?.message)
+  }
   return c.json({ ok: true })
 })
 
 app.get('/analytics/summary', adminMiddleware, async c => {
   const db = c.env.DB
-  const [today, week, month, allTime, topPages, hourly, topCountries] = await Promise.all([
-    db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','start of day')").first(),
-    db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-7 days')").first(),
-    db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days')").first(),
-    db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views").first(),
-    db.prepare("SELECT page, COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days') GROUP BY page ORDER BY views DESC LIMIT 10").all(),
-    db.prepare("SELECT strftime('%H',created_at) as hour, COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','start of day') GROUP BY hour ORDER BY hour").all(),
-    db.prepare("SELECT country, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days') AND country IS NOT NULL GROUP BY country ORDER BY sessions DESC LIMIT 10").all(),
-  ])
+  let today, week, month, allTime, topPages, hourly, topCountries
+  try {
+    ;[today, week, month, allTime, topPages, hourly, topCountries] = await Promise.all([
+      db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','start of day')").first(),
+      db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-7 days')").first(),
+      db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days')").first(),
+      db.prepare("SELECT COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views").first(),
+      db.prepare("SELECT page, COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days') GROUP BY page ORDER BY views DESC LIMIT 10").all(),
+      db.prepare("SELECT strftime('%H',created_at) as hour, COUNT(*) as views, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','start of day') GROUP BY hour ORDER BY hour").all(),
+      db.prepare("SELECT country, COUNT(DISTINCT session_id) as sessions FROM page_views WHERE created_at >= datetime('now','-30 days') AND country IS NOT NULL GROUP BY country ORDER BY sessions DESC LIMIT 10").all(),
+    ])
+  } catch (e) {
+    return c.json({ error: 'Failed to fetch analytics' }, 500)
+  }
   return c.json({
     today,
     week,
