@@ -632,7 +632,7 @@ function AdminApp() {
                           : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
                       }`}>
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ev.registration_closed ? 'bg-amber-500' : 'bg-gray-300'}`} />
-                      {ev.registration_closed ? 'סגורה' : 'פתוחה'}
+                      {ev.registration_closed ? 'הרשמה סגורה' : 'הרשמה פתוחה'}
                     </button>
                     <div className="flex-shrink-0 flex items-center gap-1.5 px-2">
                       <span title="מאושר" className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ {ev.confirmed_count || 0}</span>
