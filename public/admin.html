@@ -167,20 +167,9 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 fade-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4 gap-3">
-          <div className="flex items-center gap-3 flex-wrap min-w-0">
-            <h3 className="text-lg font-bold whitespace-nowrap">{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
-            <button type="button" onClick={() => setRegistrationClosed(v => !v)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border transition flex-shrink-0 ${
-                registrationClosed
-                  ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-              }`}>
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${registrationClosed ? 'bg-amber-500' : 'bg-gray-300'}`} />
-              {registrationClosed ? 'הרשמה סגורה' : 'הרשמה פתוחה'}
-            </button>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl flex-shrink-0">✕</button>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold">{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
         </div>
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -552,6 +541,17 @@ function AdminApp() {
   function handleFormClose() { setShowForm(false); setEditEvent(null); }
   function handleSave() { handleFormClose(); fetchEvents(); }
 
+  async function toggleRegistration(ev) {
+    const newVal = !ev.registration_closed;
+    setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, registration_closed: newVal ? 1 : 0 } : e));
+    try {
+      await apiFetch(`/events/${ev.id}`, { method: 'PUT', body: JSON.stringify({ registration_closed: newVal }) });
+    } catch (err) {
+      setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, registration_closed: ev.registration_closed } : e));
+      alert('שגיאה בעדכון: ' + err.message);
+    }
+  }
+
   if (!admin) return <LoginScreen onLogin={setAdmin} />;
 
   // Group events by date
@@ -624,6 +624,16 @@ function AdminApp() {
                           : <span className="text-emerald-600 font-semibold">חינם</span>}
                       </div>
                     </div>
+                    <button type="button" onClick={() => toggleRegistration(ev)}
+                      title={ev.registration_closed ? 'לחץ לפתיחת הרשמה' : 'לחץ לסגירת הרשמה'}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border transition flex-shrink-0 ${
+                        ev.registration_closed
+                          ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                          : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+                      }`}>
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ev.registration_closed ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                      {ev.registration_closed ? 'סגורה' : 'פתוחה'}
+                    </button>
                     <div className="flex-shrink-0 flex items-center gap-1.5 px-2">
                       <span title="מאושר" className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">✓ {ev.confirmed_count || 0}</span>
                       <span title="ממתין לתשלום" className="text-xs font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700">⏳ {ev.pending_count || 0}</span>
