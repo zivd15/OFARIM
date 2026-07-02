@@ -50,6 +50,9 @@ CREATE INDEX idx_events_date ON events(date);
 CREATE INDEX idx_participants_event ON participants(event_id);
 CREATE INDEX idx_participants_user ON participants(user_id);
 CREATE INDEX idx_participants_status_created ON participants(status, created_at);
+
+-- Migration 005: registration_closed flag for FOMO
+ALTER TABLE events ADD COLUMN registration_closed INTEGER NOT NULL DEFAULT 0;
 CREATE UNIQUE INDEX uniq_users_email
   ON users(email);
 CREATE UNIQUE INDEX uniq_participants_user_event_active

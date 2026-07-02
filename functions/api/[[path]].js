@@ -671,7 +671,7 @@ app.get('/events/public', async c => {
   // 'expired' rows are never summed, so they're excluded from every count.
   const base = `
     SELECT e.id, e.title, e.date, e.time, e.end_time, e.description, e.location, e.color,
-           e.max_participants, e.price, e.current_participants, e.allow_couples, e.couple_price, e.payment_link,
+           e.max_participants, e.price, e.current_participants, e.allow_couples, e.couple_price, e.payment_link, e.registration_closed,
            COALESCE(SUM(CASE WHEN p.status = 'confirmed'  THEN p.spots ELSE 0 END), 0) AS confirmed_count,
            COALESCE(SUM(CASE WHEN p.status = 'pending'    THEN p.spots ELSE 0 END), 0) AS pending_count,
            COALESCE(SUM(CASE WHEN p.status = 'waitlisted' THEN p.spots ELSE 0 END), 0) AS waitlist_count
@@ -748,6 +748,7 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
     'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message FROM events WHERE id = ?'
   ).bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
+  if (event.registration_closed) return c.json({ error: 'ההרשמה לאירוע זה סגורה.' }, 400)
 
   // Reject couple ticket if the event doesn't allow it.
   if (ticketType === 'couple' && !event.allow_couples) {
@@ -964,14 +965,14 @@ app.get('/events/:id', adminMiddleware, async c => {
 })
 
 app.post('/events', adminMiddleware, async c => {
-  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message, registration_closed } = await c.req.json()
   if (!title?.trim()) return c.json({ error: 'Title is required' }, 400)
   if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return c.json({ error: 'Date required (YYYY-MM-DD)' }, 400)
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price), allow_couples ? 1 : 0, ilsToAgorot(couple_price), payment_link?.trim() || null, confirmation_message?.trim() || null, reminder_message?.trim() || null).run()
+    'INSERT INTO events (title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message, registration_closed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(title.trim(), date, time || '', end_time || '', description || '', location || '', color || '#3498db', max_participants || 0, ilsToAgorot(price), allow_couples ? 1 : 0, ilsToAgorot(couple_price), payment_link?.trim() || null, confirmation_message?.trim() || null, reminder_message?.trim() || null, registration_closed ? 1 : 0).run()
 
   const event = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(result.meta.last_row_id).first()
   return c.json({ ...event, participants: [], participant_count: 0 }, 201)
@@ -981,9 +982,9 @@ app.put('/events/:id', adminMiddleware, async c => {
   const existing = await c.env.DB.prepare('SELECT * FROM events WHERE id = ?').bind(c.req.param('id')).first()
   if (!existing) return c.json({ error: 'Event not found' }, 404)
 
-  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message } = await c.req.json()
+  const { title, date, time, end_time, description, location, color, max_participants, price, allow_couples, couple_price, payment_link, confirmation_message, reminder_message, registration_closed } = await c.req.json()
   await c.env.DB.prepare(
-    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=?, allow_couples=?, couple_price=?, payment_link=?, confirmation_message=?, reminder_message=? WHERE id=?'
+    'UPDATE events SET title=?, date=?, time=?, end_time=?, description=?, location=?, color=?, max_participants=?, price=?, allow_couples=?, couple_price=?, payment_link=?, confirmation_message=?, reminder_message=?, registration_closed=? WHERE id=?'
   ).bind(
     title !== undefined ? title.trim() : existing.title,
     date || existing.date,
@@ -999,6 +1000,7 @@ app.put('/events/:id', adminMiddleware, async c => {
     payment_link !== undefined ? (payment_link?.trim() || null) : existing.payment_link,
     confirmation_message !== undefined ? (confirmation_message?.trim() || null) : existing.confirmation_message,
     reminder_message !== undefined ? (reminder_message?.trim() || null) : existing.reminder_message,
+    registration_closed !== undefined ? (registration_closed ? 1 : 0) : existing.registration_closed,
     c.req.param('id')
   ).run()
 

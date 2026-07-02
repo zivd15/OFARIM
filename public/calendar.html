@@ -154,7 +154,7 @@ function DayPopup({ day, month, year, events, onEventClick, onClose }) {
           {events.length === 0 ? (
             <p style={{textAlign:'center', color:'#9ca3af', fontSize:'14px', padding:'32px 0'}}>אין אירועים בתאריך זה</p>
           ) : events.map(ev => {
-            const full = ev.spots_left !== null && ev.spots_left <= 0;
+            const full = ev.registration_closed || (ev.spots_left !== null && ev.spots_left <= 0);
             return (
               <div key={ev.id} onClick={() => { onClose(); onEventClick(ev); }} style={{
                 display:'flex', alignItems:'flex-start', gap:'12px',
@@ -272,11 +272,12 @@ function EventModal({ event, onClose, onRegistered }) {
     }).catch(() => {});
   }, []);
 
-  const isFull = event.spots_left !== null && event.spots_left <= 0;
+  const isClosed = !!event.registration_closed;
+  const isFull = isClosed || (event.spots_left !== null && event.spots_left <= 0);
 
   // Couple ticket needs 2 free spots; single needs 1.
   const spotsNeeded = ticketType === 'couple' ? 2 : 1;
-  const notEnoughRoom = event.spots_left !== null && event.spots_left < spotsNeeded;
+  const notEnoughRoom = !isClosed && event.spots_left !== null && event.spots_left < spotsNeeded;
 
   // Displayed price changes with the ticket selection.
   const displayPrice = ticketType === 'couple'
@@ -327,8 +328,8 @@ function EventModal({ event, onClose, onRegistered }) {
         )}
 
         {/* Availability */}
-        <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-semibold ${isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-          {isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}
+        <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-semibold ${isClosed ? 'bg-amber-50 text-amber-700' : isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+          {isClosed ? 'ההרשמה לאירוע זה סגורה' : isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}
         </div>
 
         {/* Ticket type selector — shown only when the event allows couples */}
@@ -440,7 +441,9 @@ function EventModal({ event, onClose, onRegistered }) {
             )}
           </>
         ) : isFull ? (
-          <div className="text-center py-4 text-gray-400">ההרשמה סגורה — האירוע מלא.</div>
+          <div className="text-center py-4 text-gray-400">
+            {isClosed ? 'ההרשמה לאירוע זה סגורה.' : 'ההרשמה סגורה — האירוע מלא.'}
+          </div>
         ) : null}
       </div>
     </div>
@@ -449,7 +452,7 @@ function EventModal({ event, onClose, onRegistered }) {
 
 // ─── Event Feed Card ─────────────────────────────────────
 function EventFeedCard({ event: ev, onClick }) {
-  const isFull = ev.spots_left !== null && ev.spots_left <= 0;
+  const isFull = !!ev.registration_closed || (ev.spots_left !== null && ev.spots_left <= 0);
   const isAlmostFull = !isFull && ev.spots_left !== null && ev.spots_left > 0 && ev.spots_left <= 5;
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition cursor-pointer"

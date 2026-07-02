@@ -129,6 +129,7 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   const [paymentLink, setPaymentLink] = useState(event?.payment_link || '');
   const [confirmationMessage, setConfirmationMessage] = useState(event?.confirmation_message || '');
   const [reminderMessage, setReminderMessage] = useState(event?.reminder_message || '');
+  const [registrationClosed, setRegistrationClosed] = useState(!!event?.registration_closed);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -142,7 +143,7 @@ function EventForm({ event, onSave, onDelete, onClose }) {
     setLoading(true);
     try {
       // Send price in ILS; the API converts to agorot on insert.
-      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0, payment_link: paymentLink.trim() || null, confirmation_message: confirmationMessage.trim() || null, reminder_message: reminderMessage.trim() || null };
+      const body = { title, date, time, end_time: endTime, description, location, color, max_participants: parseInt(maxParticipants) || 0, price: parseFloat(price) || 0, allow_couples: allowCouples, couple_price: allowCouples ? (parseFloat(couplePrice) || 0) : 0, payment_link: paymentLink.trim() || null, confirmation_message: confirmationMessage.trim() || null, reminder_message: reminderMessage.trim() || null, registration_closed: registrationClosed };
       if (event) {
         await apiFetch(`/events/${event.id}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
@@ -166,9 +167,20 @@ function EventForm({ event, onSave, onDelete, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 fade-in max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold">{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        <div className="flex justify-between items-center mb-4 gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <h3 className="text-lg font-bold whitespace-nowrap">{event ? 'עריכת אירוע' : 'אירוע חדש'}</h3>
+            <button type="button" onClick={() => setRegistrationClosed(v => !v)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold border transition flex-shrink-0 ${
+                registrationClosed
+                  ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
+                  : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
+              }`}>
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${registrationClosed ? 'bg-amber-500' : 'bg-gray-300'}`} />
+              {registrationClosed ? 'הרשמה סגורה' : 'הרשמה פתוחה'}
+            </button>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl flex-shrink-0">✕</button>
         </div>
         {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-3">
