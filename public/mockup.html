@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OFARIM — Color Mockups</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Brand palette (exact from your palette board) ── */
+  /* #152d2e  #ffffff  #b99b69  #5d7772  #9fccc3  #77917a  #dfabb3  #9a77a6 */
+  /* #9a77a6→#dd99b2  #8ba893  #f8fada  #b3b5a9  #d3a994  #5c765f  #93a899  */
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    background: #1a1a1a;
+    min-height: 100vh;
+    padding: 36px 20px 64px;
+  }
+
+  h1 { text-align:center; font-size:20px; font-weight:700; color:#fff; margin-bottom:6px; }
+  .subtitle { text-align:center; font-size:12px; color:#666; margin-bottom:52px; }
+
+  /* version block */
+  .version { margin-bottom: 64px; }
+  .ver-title {
+    text-align:center; font-size:14px; font-weight:700; color:#ccc;
+    letter-spacing:.06em; text-transform:uppercase; margin-bottom:8px;
+  }
+  .ver-desc { text-align:center; font-size:12px; color:#666; margin-bottom:28px; }
+  .swatches { display:flex; justify-content:center; gap:8px; margin-bottom:28px; }
+  .sw { width:22px; height:22px; border-radius:50%; border:2px solid rgba(255,255,255,.1); }
+
+  /* phone pair */
+  .pair { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+
+  /* phone shell */
+  .phone-wrap { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .phone-lbl { font-size:10px; color:#555; letter-spacing:.08em; text-transform:uppercase; }
+  .phone {
+    width: 220px; height: 420px;
+    border-radius: 32px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,.7), 0 0 0 1.5px rgba(255,255,255,.07);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .phone-inner {
+    width:100%; height:100%;
+    display:flex; flex-direction:column;
+    padding:22px 14px 14px;
+    position:relative; overflow:hidden;
+  }
+
+  /* ───────── VERSION 1: Fresh Mint ───────── */
+  /* bg #f8fada · dark #152d2e · teal #5d7772 · mint #9fccc3 · gold #b99b69 */
+  .v1 { background: #f8fada; }
+  .v1::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 15% 10%, rgba(159,204,195,.28) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(93,119,114,.10) 0%, transparent 55%);
+  }
+  .v1 .greeting { font-size:10px; font-weight:600; color:#5d7772; margin-bottom:2px; text-align:center; z-index:1; }
+  .v1 .date    { font-size:8px; color:#93a899; margin-bottom:14px; text-align:center; z-index:1; }
+  .v1 .logo    {
+    width:76px; height:76px; border-radius:50%; background:#5d7772;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 22px rgba(93,119,114,.3); margin:0 auto 16px; z-index:1; position:relative;
+  }
+  .v1 .logo-t  { font-size:13px; font-weight:800; color:#f8fada; letter-spacing:-.3px; }
+  .v1 .nav     { display:flex; flex-direction:column; gap:6px; flex:1; z-index:1; }
+  .v1 .nav-row {
+    display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:11px;
+    background:rgba(255,255,255,.72); border:1px solid rgba(159,204,195,.3);
+  }
+  .v1 .nav-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .v1 .nav-title { font-size:9.5px; font-weight:600; color:#152d2e; }
+  .v1 .nav-sub   { font-size:7.5px; color:#77917a; margin-top:1px; }
+  .v1 .footer { font-size:7px; color:#93a899; text-align:center; padding-top:8px; z-index:1; }
+
+  /* cal v1 */
+  .v1-cal { background: #f8fada; }
+  .v1-cal::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 85% 8%, rgba(159,204,195,.2) 0%, transparent 50%);
+  }
+  .v1 .cal-hd  { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; z-index:1; position:relative; }
+  .v1 .cal-mo  { font-size:12px; font-weight:700; color:#152d2e; }
+  .v1 .cal-btn { width:20px; height:20px; border-radius:5px; background:rgba(159,204,195,.25); display:flex; align-items:center; justify-content:center; }
+  .v1 .cgrid   { display:grid; grid-template-columns:repeat(7,1fr); gap:2.5px; z-index:1; position:relative; }
+  .v1 .cdh     { font-size:6.5px; color:#77917a; text-align:center; font-weight:600; padding-bottom:2px; }
+  .v1 .cd      { aspect-ratio:1; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:7.5px; color:#5d7772; background:rgba(255,255,255,.4); position:relative; }
+  .v1 .cd.today { background:#5d7772; color:#fff; font-weight:700; }
+  .v1 .cd.ev   { background:rgba(255,255,255,.8); border:1.5px solid rgba(159,204,195,.45); }
+  .v1 .cd .ev-bar { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:60%; height:2.5px; border-radius:2px; }
+  .v1 .upcoming-t { font-size:9px; font-weight:700; color:#152d2e; margin:8px 0 5px; z-index:1; position:relative; }
+  .v1 .ev-row  {
+    display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:9px;
+    background:rgba(255,255,255,.75); border:1px solid rgba(159,204,195,.25); z-index:1; position:relative;
+  }
+  .v1 .ev-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .v1 .ev-t    { font-size:8px; font-weight:600; color:#152d2e; }
+  .v1 .ev-d    { font-size:6.5px; color:#77917a; }
+  .v1 .ev-p    { font-size:6.5px; font-weight:700; padding:2px 5px; border-radius:4px; flex-shrink:0; margin-right:auto; }
+  .v1 .ev-avail { font-size:6.5px; font-weight:600; color:#5c765f; margin-top:2px; text-align:left; z-index:1; position:relative; }
+
+  /* ───────── VERSION 2: Rose & Gold ───────── */
+  /* bg #ffffff · dark #152d2e · rose #dfabb3 · gold #b99b69 · purple #9a77a6 */
+  .v2 { background: #fff; }
+  .v2::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 20% 12%, rgba(223,171,179,.22) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 85%, rgba(154,119,166,.1) 0%, transparent 55%);
+  }
+  .v2 .greeting { font-size:10px; font-weight:600; color:#9a77a6; margin-bottom:2px; text-align:center; z-index:1; }
+  .v2 .date    { font-size:8px; color:#b3b5a9; margin-bottom:14px; text-align:center; z-index:1; }
+  .v2 .logo    {
+    width:76px; height:76px; border-radius:50%;
+    background:linear-gradient(135deg, #9a77a6 0%, #dd99b2 100%);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 22px rgba(154,119,166,.3); margin:0 auto 16px; z-index:1; position:relative;
+  }
+  .v2 .logo-t  { font-size:13px; font-weight:800; color:#fff; letter-spacing:-.3px; }
+  .v2 .nav     { display:flex; flex-direction:column; gap:6px; flex:1; z-index:1; }
+  .v2 .nav-row {
+    display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:11px;
+    background:#fff; border:1px solid rgba(223,171,179,.35);
+    box-shadow:0 2px 8px rgba(223,171,179,.12);
+  }
+  .v2 .nav-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .v2 .nav-title { font-size:9.5px; font-weight:600; color:#152d2e; }
+  .v2 .nav-sub   { font-size:7.5px; color:#b3b5a9; margin-top:1px; }
+  .v2 .footer { font-size:7px; color:#dfabb3; text-align:center; padding-top:8px; z-index:1; }
+
+  /* cal v2 */
+  .v2-cal { background: #fff; }
+  .v2-cal::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 85% 8%, rgba(223,171,179,.18) 0%, transparent 50%);
+  }
+  .v2 .cal-hd  { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; z-index:1; position:relative; }
+  .v2 .cal-mo  { font-size:12px; font-weight:700; color:#152d2e; }
+  .v2 .cal-btn { width:20px; height:20px; border-radius:5px; background:rgba(223,171,179,.2); display:flex; align-items:center; justify-content:center; }
+  .v2 .cgrid   { display:grid; grid-template-columns:repeat(7,1fr); gap:2.5px; z-index:1; position:relative; }
+  .v2 .cdh     { font-size:6.5px; color:#b3b5a9; text-align:center; font-weight:600; padding-bottom:2px; }
+  .v2 .cd      { aspect-ratio:1; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:7.5px; color:#152d2e; background:#fafafa; position:relative; }
+  .v2 .cd.today { background:linear-gradient(135deg,#9a77a6,#dd99b2); color:#fff; font-weight:700; }
+  .v2 .cd.ev   { background:#fff; border:1.5px solid rgba(223,171,179,.5); }
+  .v2 .cd .ev-bar { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:60%; height:2.5px; border-radius:2px; }
+  .v2 .upcoming-t { font-size:9px; font-weight:700; color:#152d2e; margin:8px 0 5px; z-index:1; position:relative; }
+  .v2 .ev-row  {
+    display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:9px;
+    background:#fff; border:1px solid rgba(223,171,179,.3);
+    box-shadow:0 1px 4px rgba(223,171,179,.12); z-index:1; position:relative;
+  }
+  .v2 .ev-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .v2 .ev-t    { font-size:8px; font-weight:600; color:#152d2e; }
+  .v2 .ev-d    { font-size:6.5px; color:#b3b5a9; }
+  .v2 .ev-p    { font-size:6.5px; font-weight:700; padding:2px 5px; border-radius:4px; flex-shrink:0; margin-right:auto; }
+  .v2 .ev-avail { font-size:6.5px; font-weight:600; color:#5c765f; margin-top:2px; text-align:left; z-index:1; position:relative; }
+
+  /* ───────── VERSION 3: Deep Forest (Dark) ───────── */
+  /* bg #152d2e · text #f8fada · accent #9fccc3 · gold #b99b69 · sage #8ba893 */
+  .v3 { background: #152d2e; }
+  .v3::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 15% 10%, rgba(159,204,195,.14) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(185,155,105,.07) 0%, transparent 55%);
+  }
+  .v3 .greeting { font-size:10px; font-weight:600; color:#9fccc3; margin-bottom:2px; text-align:center; z-index:1; }
+  .v3 .date    { font-size:8px; color:#5d7772; margin-bottom:14px; text-align:center; z-index:1; }
+  .v3 .logo    {
+    width:76px; height:76px; border-radius:50%; background:#1e3e3f;
+    border:2px solid rgba(159,204,195,.2);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 22px rgba(0,0,0,.4); margin:0 auto 16px; z-index:1; position:relative;
+  }
+  .v3 .logo-t  { font-size:13px; font-weight:800; color:#9fccc3; letter-spacing:-.3px; }
+  .v3 .nav     { display:flex; flex-direction:column; gap:6px; flex:1; z-index:1; }
+  .v3 .nav-row {
+    display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:11px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(159,204,195,.12);
+  }
+  .v3 .nav-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .v3 .nav-title { font-size:9.5px; font-weight:600; color:#f8fada; }
+  .v3 .nav-sub   { font-size:7.5px; color:#5d7772; margin-top:1px; }
+  .v3 .footer { font-size:7px; color:#2e5254; text-align:center; padding-top:8px; z-index:1; }
+
+  /* cal v3 */
+  .v3-cal { background: #152d2e; }
+  .v3-cal::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at 80% 8%, rgba(185,155,105,.1) 0%, transparent 50%);
+  }
+  .v3 .cal-hd  { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; z-index:1; position:relative; }
+  .v3 .cal-mo  { font-size:12px; font-weight:700; color:#f8fada; }
+  .v3 .cal-btn { width:20px; height:20px; border-radius:5px; background:rgba(159,204,195,.1); display:flex; align-items:center; justify-content:center; }
+  .v3 .cgrid   { display:grid; grid-template-columns:repeat(7,1fr); gap:2.5px; z-index:1; position:relative; }
+  .v3 .cdh     { font-size:6.5px; color:#5d7772; text-align:center; font-weight:600; padding-bottom:2px; }
+  .v3 .cd      { aspect-ratio:1; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:7.5px; color:#8ba893; background:rgba(255,255,255,.04); position:relative; }
+  .v3 .cd.today { background:#5d7772; color:#fff; font-weight:700; }
+  .v3 .cd.ev   { background:rgba(159,204,195,.08); border:1.5px solid rgba(159,204,195,.2); }
+  .v3 .cd .ev-bar { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:60%; height:2.5px; border-radius:2px; }
+  .v3 .upcoming-t { font-size:9px; font-weight:700; color:#f8fada; margin:8px 0 5px; z-index:1; position:relative; }
+  .v3 .ev-row  {
+    display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:9px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(159,204,195,.1); z-index:1; position:relative;
+  }
+  .v3 .ev-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .v3 .ev-t    { font-size:8px; font-weight:600; color:#f8fada; }
+  .v3 .ev-d    { font-size:6.5px; color:#5d7772; }
+  .v3 .ev-p    { font-size:6.5px; font-weight:700; padding:2px 5px; border-radius:4px; flex-shrink:0; margin-right:auto; }
+  .v3 .ev-avail { font-size:6.5px; font-weight:600; color:#8ba893; margin-top:2px; text-align:left; z-index:1; position:relative; }
+
+  /* separator */
+  hr { border:none; border-top:1px solid #2a2a2a; margin:16px 0 56px; }
+
+  /* shared small SVG chevron */
+  .chev { color:inherit; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<h1>OFARIM — גרסאות צבע</h1>
+<p class="subtitle">3 גרסאות מבוססות על הפלטה שלך · לחץ על הקובץ בדפדפן</p>
+
+<!-- ══════════════════════════════════
+     VERSION 1 — Fresh Mint
+══════════════════════════════════ -->
+<div class="version">
+  <div class="ver-title">גרסה 1 — Fresh Mint</div>
+  <div class="swatches">
+    <div class="sw" style="background:#f8fada"></div>
+    <div class="sw" style="background:#152d2e"></div>
+    <div class="sw" style="background:#5d7772"></div>
+    <div class="sw" style="background:#9fccc3"></div>
+    <div class="sw" style="background:#b99b69"></div>
+    <div class="sw" style="background:#77917a"></div>
+  </div>
+  <div class="ver-desc">רקע #f8fada · טקסט #152d2e · אקצנט ירוק-מנטה · כפתורים בטיל · זהב לתגיות מחיר</div>
+  <div class="pair">
+
+    <!-- Home V1 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v1">
+          <div class="greeting">שלום, מיכל</div>
+          <div class="date">יום שני, 9 ביוני</div>
+          <div class="logo"><span class="logo-t">עופרים</span></div>
+          <div class="nav">
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(93,119,114,.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5d7772" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div><div class="nav-title">מי אנחנו</div><div class="nav-sub">קצת עלינו</div></div>
+              <svg class="chev" style="margin-right:auto;color:#9fccc3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(159,204,195,.2)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9fccc3" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div><div class="nav-title">לוח אירועים</div><div class="nav-sub">צפייה והרשמה</div></div>
+              <svg class="chev" style="margin-right:auto;color:#9fccc3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(185,155,105,.15)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b99b69" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div><div class="nav-title">האזור שלי</div><div class="nav-sub">כניסה ופרטים</div></div>
+              <svg class="chev" style="margin-right:auto;color:#9fccc3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="footer">
+            <div style="display:flex;justify-content:center;gap:12px;margin-bottom:3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#93a899" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="#93a899" stroke="none"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#93a899" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+            </div>
+            עופרים © 2026
+          </div>
+        </div>
+      </div>
+      <div class="phone-lbl">דף הבית</div>
+    </div>
+
+    <!-- Calendar V1 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v1-cal v1">
+          <div class="cal-hd">
+            <div class="cal-mo">יוני 2026</div>
+            <div style="display:flex;gap:4px">
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#77917a" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#77917a" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="cgrid">
+            <div class="cdh">א</div><div class="cdh">ב</div><div class="cdh">ג</div><div class="cdh">ד</div><div class="cdh">ה</div><div class="cdh">ו</div><div class="cdh">ש</div>
+            <div class="cd"></div><div class="cd">2</div><div class="cd">3</div><div class="cd">4</div><div class="cd">5</div><div class="cd">6</div><div class="cd">7</div>
+            <div class="cd">8</div><div class="cd today">9</div><div class="cd">10</div><div class="cd">11</div><div class="cd">12</div><div class="cd">13</div><div class="cd">14</div>
+            <div class="cd">15</div><div class="cd">16</div><div class="cd">17</div><div class="cd">18</div><div class="cd">19</div><div class="cd">20</div><div class="cd">21</div>
+            <div class="cd">22</div><div class="cd">23</div><div class="cd">24</div><div class="cd">25</div>
+            <div class="cd ev">26<div class="ev-bar" style="background:#9fccc3"></div></div>
+            <div class="cd">27</div><div class="cd">28</div>
+            <div class="cd">29</div><div class="cd">30</div>
+          </div>
+          <div class="upcoming-t">אירועים קרובים</div>
+          <div class="ev-row">
+            <div class="ev-dot" style="background:#9fccc3"></div>
+            <div style="flex:1;min-width:0">
+              <div class="ev-t">סדנת הכנה להנקה</div>
+              <div class="ev-d">ו׳ 26/6 · 09:30 · קריית טבעון</div>
+            </div>
+            <div>
+              <div class="ev-p" style="background:rgba(185,155,105,.15);color:#b99b69">₪130</div>
+              <div class="ev-p" style="background:#152d2e;color:#9fccc3;margin-top:2px">זוגי ₪220</div>
+            </div>
+          </div>
+          <div class="ev-avail">✓ יש מקום פנוי</div>
+        </div>
+      </div>
+      <div class="phone-lbl">לוח אירועים</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════════
+     VERSION 2 — Rose & Gold
+══════════════════════════════════ -->
+<div class="version">
+  <div class="ver-title">גרסה 2 — Rose &amp; Gold</div>
+  <div class="swatches">
+    <div class="sw" style="background:#ffffff;border-color:#333"></div>
+    <div class="sw" style="background:#152d2e"></div>
+    <div class="sw" style="background:#dfabb3"></div>
+    <div class="sw" style="background:#b99b69"></div>
+    <div class="sw" style="background:#9a77a6"></div>
+    <div class="sw" style="background:#dd99b2"></div>
+  </div>
+  <div class="ver-desc">רקע לבן נקי · ורוד #dfabb3 כאקצנט · גרדיאנט סגול→ורוד לכפתורים ראשיים · זהב לתגיות</div>
+  <div class="pair">
+
+    <!-- Home V2 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v2">
+          <div class="greeting">שלום, מיכל</div>
+          <div class="date">יום שני, 9 ביוני</div>
+          <div class="logo"><span class="logo-t">עופרים</span></div>
+          <div class="nav">
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(154,119,166,.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9a77a6" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div><div class="nav-title">מי אנחנו</div><div class="nav-sub">קצת עלינו</div></div>
+              <svg class="chev" style="margin-right:auto;color:#dfabb3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(223,171,179,.15)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dfabb3" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div><div class="nav-title">לוח אירועים</div><div class="nav-sub">צפייה והרשמה</div></div>
+              <svg class="chev" style="margin-right:auto;color:#dfabb3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(185,155,105,.15)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b99b69" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div><div class="nav-title">האזור שלי</div><div class="nav-sub">כניסה ופרטים</div></div>
+              <svg class="chev" style="margin-right:auto;color:#dfabb3" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="footer">
+            <div style="display:flex;justify-content:center;gap:12px;margin-bottom:3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dfabb3" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="#dfabb3" stroke="none"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dfabb3" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+            </div>
+            עופרים © 2026
+          </div>
+        </div>
+      </div>
+      <div class="phone-lbl">דף הבית</div>
+    </div>
+
+    <!-- Calendar V2 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v2-cal v2">
+          <div class="cal-hd">
+            <div class="cal-mo">יוני 2026</div>
+            <div style="display:flex;gap:4px">
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#dfabb3" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#dfabb3" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="cgrid">
+            <div class="cdh">א</div><div class="cdh">ב</div><div class="cdh">ג</div><div class="cdh">ד</div><div class="cdh">ה</div><div class="cdh">ו</div><div class="cdh">ש</div>
+            <div class="cd"></div><div class="cd">2</div><div class="cd">3</div><div class="cd">4</div><div class="cd">5</div><div class="cd">6</div><div class="cd">7</div>
+            <div class="cd">8</div><div class="cd today">9</div><div class="cd">10</div><div class="cd">11</div><div class="cd">12</div><div class="cd">13</div><div class="cd">14</div>
+            <div class="cd">15</div><div class="cd">16</div><div class="cd">17</div><div class="cd">18</div><div class="cd">19</div><div class="cd">20</div><div class="cd">21</div>
+            <div class="cd">22</div><div class="cd">23</div><div class="cd">24</div><div class="cd">25</div>
+            <div class="cd ev">26<div class="ev-bar" style="background:#dfabb3"></div></div>
+            <div class="cd">27</div><div class="cd">28</div>
+            <div class="cd">29</div><div class="cd">30</div>
+          </div>
+          <div class="upcoming-t">אירועים קרובים</div>
+          <div class="ev-row">
+            <div class="ev-dot" style="background:#dfabb3"></div>
+            <div style="flex:1;min-width:0">
+              <div class="ev-t">סדנת הכנה להנקה</div>
+              <div class="ev-d">ו׳ 26/6 · 09:30 · קריית טבעון</div>
+            </div>
+            <div>
+              <div class="ev-p" style="background:rgba(185,155,105,.12);color:#b99b69">₪130</div>
+              <div class="ev-p" style="background:linear-gradient(135deg,#9a77a6,#dd99b2);color:#fff;margin-top:2px">זוגי ₪220</div>
+            </div>
+          </div>
+          <div class="ev-avail">✓ יש מקום פנוי</div>
+        </div>
+      </div>
+      <div class="phone-lbl">לוח אירועים</div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ══════════════════════════════════
+     VERSION 3 — Deep Forest (Dark)
+══════════════════════════════════ -->
+<div class="version">
+  <div class="ver-title">גרסה 3 — Deep Forest (Dark)</div>
+  <div class="swatches">
+    <div class="sw" style="background:#152d2e"></div>
+    <div class="sw" style="background:#f8fada"></div>
+    <div class="sw" style="background:#9fccc3"></div>
+    <div class="sw" style="background:#b99b69"></div>
+    <div class="sw" style="background:#8ba893"></div>
+    <div class="sw" style="background:#5d7772"></div>
+  </div>
+  <div class="ver-desc">רקע כהה #152d2e · טקסט #f8fada · מנטה ואקצנטים בהירים · dark mode מלא</div>
+  <div class="pair">
+
+    <!-- Home V3 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v3">
+          <div class="greeting">שלום, מיכל</div>
+          <div class="date">יום שני, 9 ביוני</div>
+          <div class="logo"><span class="logo-t">עופרים</span></div>
+          <div class="nav">
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(159,204,195,.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9fccc3" stroke-width="2.2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div><div class="nav-title">מי אנחנו</div><div class="nav-sub">קצת עלינו</div></div>
+              <svg class="chev" style="margin-right:auto;color:#5d7772" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(159,204,195,.1)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9fccc3" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div><div class="nav-title">לוח אירועים</div><div class="nav-sub">צפייה והרשמה</div></div>
+              <svg class="chev" style="margin-right:auto;color:#5d7772" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+            <div class="nav-row">
+              <div class="nav-icon" style="background:rgba(185,155,105,.12)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#b99b69" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div><div class="nav-title">האזור שלי</div><div class="nav-sub">כניסה ופרטים</div></div>
+              <svg class="chev" style="margin-right:auto;color:#5d7772" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </div>
+          </div>
+          <div class="footer">
+            <div style="display:flex;justify-content:center;gap:12px;margin-bottom:3px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2e5254" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="#2e5254" stroke="none"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2e5254" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+            </div>
+            עופרים © 2026
+          </div>
+        </div>
+      </div>
+      <div class="phone-lbl">דף הבית</div>
+    </div>
+
+    <!-- Calendar V3 -->
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="phone-inner v3-cal v3">
+          <div class="cal-hd">
+            <div class="cal-mo">יוני 2026</div>
+            <div style="display:flex;gap:4px">
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#9fccc3" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></div>
+              <div class="cal-btn"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#9fccc3" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+          <div class="cgrid">
+            <div class="cdh">א</div><div class="cdh">ב</div><div class="cdh">ג</div><div class="cdh">ד</div><div class="cdh">ה</div><div class="cdh">ו</div><div class="cdh">ש</div>
+            <div class="cd"></div><div class="cd">2</div><div class="cd">3</div><div class="cd">4</div><div class="cd">5</div><div class="cd">6</div><div class="cd">7</div>
+            <div class="cd">8</div><div class="cd today">9</div><div class="cd">10</div><div class="cd">11</div><div class="cd">12</div><div class="cd">13</div><div class="cd">14</div>
+            <div class="cd">15</div><div class="cd">16</div><div class="cd">17</div><div class="cd">18</div><div class="cd">19</div><div class="cd">20</div><div class="cd">21</div>
+            <div class="cd">22</div><div class="cd">23</div><div class="cd">24</div><div class="cd">25</div>
+            <div class="cd ev">26<div class="ev-bar" style="background:#9fccc3"></div></div>
+            <div class="cd">27</div><div class="cd">28</div>
+            <div class="cd">29</div><div class="cd">30</div>
+          </div>
+          <div class="upcoming-t">אירועים קרובים</div>
+          <div class="ev-row">
+            <div class="ev-dot" style="background:#9fccc3"></div>
+            <div style="flex:1;min-width:0">
+              <div class="ev-t">סדנת הכנה להנקה</div>
+              <div class="ev-d">ו׳ 26/6 · 09:30 · קריית טבעון</div>
+            </div>
+            <div>
+              <div class="ev-p" style="background:rgba(185,155,105,.15);color:#b99b69">₪130</div>
+              <div class="ev-p" style="background:#1e3e3f;color:#9fccc3;border:1px solid rgba(159,204,195,.2);margin-top:2px">זוגי ₪220</div>
+            </div>
+          </div>
+          <div class="ev-avail">✓ יש מקום פנוי</div>
+        </div>
+      </div>
+      <div class="phone-lbl">לוח אירועים</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

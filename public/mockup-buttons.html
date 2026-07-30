@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OFARIM — Button Mockup #a6bba8 / #5d7772</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    background: #1a1a1a;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px 64px;
+    gap: 32px;
+  }
+
+  .page-title { color:#fff; font-size:17px; font-weight:700; text-align:center; }
+  .page-sub   { color:#555; font-size:12px; text-align:center; margin-top:4px; }
+
+  .swatch-bar { display:flex; gap:16px; justify-content:center; }
+  .sw-item { display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .sw { width:32px; height:32px; border-radius:50%; }
+  .sw-lbl { font-size:10px; color:#777; font-family:monospace; }
+  .sw-role { font-size:9px; color:#555; }
+
+  /* phone */
+  .phone {
+    width: 300px; height: 580px;
+    border-radius: 44px;
+    overflow: hidden;
+    box-shadow: 0 28px 72px rgba(0,0,0,.75), 0 0 0 1.5px rgba(255,255,255,.08);
+  }
+  .site {
+    width:100%; height:100%;
+    background: #F4F7F6;
+    position: relative;
+    display:flex; flex-direction:column; align-items:center;
+    padding: 38px 22px 70px;
+    overflow:hidden;
+  }
+  .site::before {
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse at 15% 10%, rgba(160,204,193,0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(78,119,114,0.10) 0%, transparent 55%);
+  }
+
+  /* greeting */
+  .greeting-bar { width:100%; text-align:center; margin-bottom:18px; z-index:1; }
+  .greeting-name { font-size:16px; font-weight:600; color:#152020; margin-bottom:2px; }
+  .greeting-date { font-size:11px; font-weight:300; color:#5a7a76; }
+
+  /* logo */
+  .logo-wrap { margin-bottom:26px; z-index:1; }
+  .logo-circle {
+    width:152px; height:152px; border-radius:50%; overflow:hidden;
+    box-shadow:0 4px 28px rgba(21,32,32,.15);
+    background:#EDF2F1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .logo-circle img { width:100%; height:100%; object-fit:cover; transform:scale(1.38); display:block; }
+  .logo-fb { font-size:20px; font-weight:800; color:#4E7772; }
+
+  /* ── NAV BUTTONS — changed styles ── */
+  .nav { width:100%; display:flex; flex-direction:column; gap:9px; z-index:1; }
+  .nav-item {
+    display:flex; align-items:center; gap:14px;
+    padding:14px 18px;
+    /* ▼ new background */
+    background: #a6bba8;
+    border: 1px solid rgba(93,119,114,0.2);
+    border-radius: 13px;
+  }
+  .nav-text { flex:1; text-align:right; }
+  .nav-title { font-size:14px; font-weight:600; color:#5d7772; margin-bottom:1px; }
+  .nav-desc  { font-size:11px; font-weight:300; color:#5d7772; opacity:.8; }
+  .nav-chevron { flex-shrink:0; }
+  .nav-chevron svg { width:14px; height:14px; stroke:#A0CCC1; fill:none; stroke-width:2; stroke-linecap:round; }
+
+  /* legal */
+  .legal { margin-top:18px; text-align:center; z-index:1; }
+  .legal a { color:#4E7772; font-size:10px; text-decoration:underline; }
+  .legal-sep { color:#A0CCC1; margin:0 4px; font-size:10px; }
+
+  /* footer */
+  .footer {
+    position:absolute; bottom:0; width:100%;
+    text-align:center; padding:8px 14px;
+    font-size:10px; color:#5a7a76; line-height:1.8;
+  }
+  .footer-icons { display:flex; justify-content:center; gap:16px; margin:8px 0 3px; }
+  .built { font-size:9px; color:#A0CCC1; }
+
+  /* comparison strip */
+  .compare {
+    display:flex; gap:24px; justify-content:center; flex-wrap:wrap;
+  }
+  .compare-col { display:flex; flex-direction:column; gap:10px; align-items:center; }
+  .compare-lbl { font-size:11px; letter-spacing:.05em; text-transform:uppercase; font-family:monospace; }
+  .card {
+    width:220px; padding:14px 16px; border-radius:13px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .card-text { flex:1; text-align:right; }
+  .card-title { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .card-desc  { font-size:10px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">כפתורי ניווט — רקע &#x2F; טקסט חדש</div>
+<div class="page-sub">רקע #a6bba8 · טקסט #5d7772 · שאר האתר ללא שינוי</div>
+
+<div class="swatch-bar">
+  <div class="sw-item">
+    <div class="sw" style="background:#F4F7F6;border:2px solid #333"></div>
+    <div class="sw-lbl">#F4F7F6</div>
+    <div class="sw-role">רקע אתר</div>
+  </div>
+  <div class="sw-item">
+    <div class="sw" style="background:#a6bba8;border:2px solid rgba(255,255,255,.15)"></div>
+    <div class="sw-lbl" style="color:#a6bba8">#a6bba8</div>
+    <div class="sw-role" style="color:#a6bba8">← רקע כפתורים</div>
+  </div>
+  <div class="sw-item">
+    <div class="sw" style="background:#5d7772;border:2px solid rgba(255,255,255,.15)"></div>
+    <div class="sw-lbl" style="color:#5d7772">#5d7772</div>
+    <div class="sw-role" style="color:#a6bba8">← טקסט כפתורים</div>
+  </div>
+  <div class="sw-item">
+    <div class="sw" style="background:#152020"></div>
+    <div class="sw-lbl">#152020</div>
+    <div class="sw-role">טקסט ישן</div>
+  </div>
+</div>
+
+<!-- phone -->
+<div class="phone">
+  <div class="site">
+
+    <div class="greeting-bar">
+      <div class="greeting-name">שלום, מיכל</div>
+      <div class="greeting-date">יום שני, 9 ביוני</div>
+    </div>
+
+    <div class="logo-wrap">
+      <div class="logo-circle">
+        <img src="/images/logo.png" alt="עופרים"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="logo-fb" style="display:none">עופרים</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item">
+        <div class="nav-text">
+          <div class="nav-title">מי אנחנו</div>
+          <div class="nav-desc">קצת עלינו</div>
+        </div>
+        <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+      </div>
+      <div class="nav-item">
+        <div class="nav-text">
+          <div class="nav-title">לוח אירועים</div>
+          <div class="nav-desc">צפייה באירועים והרשמה</div>
+        </div>
+        <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+      </div>
+      <div class="nav-item">
+        <div class="nav-text">
+          <div class="nav-title">האזור שלי</div>
+          <div class="nav-desc">כניסה, הרשמה וצפייה באירועים שלי</div>
+        </div>
+        <span class="nav-chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+      </div>
+    </nav>
+
+    <div class="legal">
+      <a href="#">תקנון ותנאי שימוש</a>
+      <span class="legal-sep">·</span>
+      <a href="#">מדיניות פרטיות</a>
+      <span class="legal-sep">·</span>
+      <a href="#">מדיניות ביטולים</a>
+    </div>
+
+    <div class="footer">
+      עופרים &copy; 2026
+      <div class="footer-icons">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="#888" stroke="none"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></svg>
+      </div>
+      <div class="built">נבנה על ידי High Standard Solution</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- before / after comparison -->
+<div class="compare">
+  <div class="compare-col">
+    <div class="compare-lbl" style="color:#666">לפני</div>
+    <div class="card" style="background:rgba(255,255,255,.75);border:1px solid rgba(78,119,114,.18);">
+      <div class="card-text">
+        <div class="card-title" style="color:#152020">לוח אירועים</div>
+        <div class="card-desc" style="color:#5a7a76">צפייה והרשמה</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A0CCC1" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+    <div class="card" style="background:rgba(255,255,255,.75);border:1px solid rgba(78,119,114,.18);">
+      <div class="card-text">
+        <div class="card-title" style="color:#152020">האזור שלי</div>
+        <div class="card-desc" style="color:#5a7a76">כניסה ופרטים</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A0CCC1" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+  </div>
+
+  <div style="width:1px;background:#2a2a2a;align-self:stretch;"></div>
+
+  <div class="compare-col">
+    <div class="compare-lbl" style="color:#a6bba8">אחרי</div>
+    <div class="card" style="background:#a6bba8;border:1px solid rgba(93,119,114,.2);">
+      <div class="card-text">
+        <div class="card-title" style="color:#5d7772">לוח אירועים</div>
+        <div class="card-desc" style="color:#5d7772;opacity:.8">צפייה והרשמה</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A0CCC1" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+    <div class="card" style="background:#a6bba8;border:1px solid rgba(93,119,114,.2);">
+      <div class="card-text">
+        <div class="card-title" style="color:#5d7772">האזור שלי</div>
+        <div class="card-desc" style="color:#5d7772;opacity:.8">כניסה ופרטים</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#A0CCC1" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

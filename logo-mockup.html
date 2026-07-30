@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עופרים — בחירת לוגו</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    background: #1a1a2e;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 24px 60px;
+    gap: 32px;
+  }
+
+  h1 {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    opacity: 0.9;
+  }
+  .subtitle {
+    color: rgba(255,255,255,0.45);
+    font-size: 13px;
+    margin-top: 6px;
+    text-align: center;
+  }
+
+  .phones-row {
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .phone-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .option-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.55);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .option-label span {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.3);
+    margin-top: 2px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* ── Phone frame ── */
+  .phone {
+    width: 240px;
+    height: 490px;
+    background: #111;
+    border-radius: 36px;
+    padding: 12px 10px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.08),
+      0 24px 60px rgba(0,0,0,0.6),
+      inset 0 0 0 2px #2a2a2a;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* notch */
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 12px; left: 50%;
+    transform: translateX(-50%);
+    width: 60px; height: 6px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    z-index: 10;
+  }
+
+  .screen {
+    width: 100%;
+    height: 100%;
+    border-radius: 26px;
+    overflow: hidden;
+    background: #F4F7F6;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* gradient bg */
+  .screen::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 5%, rgba(160,204,193,0.22) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 90%, rgba(78,119,114,0.12) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .screen-inner {
+    position: relative; z-index: 1;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 14px 12px;
+    gap: 0;
+  }
+
+  /* Logo area */
+  .logo-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .logo-img {
+    width: 108px;
+    height: 108px;
+    object-fit: contain;
+  }
+  .logo-img.square {
+    border-radius: 14px;
+    box-shadow: 0 3px 14px rgba(21,32,32,0.14);
+  }
+  .logo-circle-wrap {
+    width: 108px;
+    height: 108px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 3px 14px rgba(21,32,32,0.14);
+    flex-shrink: 0;
+  }
+  .logo-circle-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scale(1.38);
+  }
+  .logo-img.no-bg {
+    /* transparent / white bg logos — no border-radius needed */
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Nav cards */
+  .nav-cards {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .nav-card {
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(78,119,114,0.18);
+    border-radius: 11px;
+    padding: 10px 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(6px);
+  }
+  .card-text { flex: 1; text-align: right; }
+  .card-title { font-size: 12px; font-weight: 600; color: #152020; margin-bottom: 1px; }
+  .card-desc  { font-size: 10px; font-weight: 300; color: #5a7a76; }
+  .chevron {
+    color: #A0CCC1;
+    flex-shrink: 0;
+  }
+  .chevron svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Legal */
+  .legal {
+    margin-top: auto;
+    padding-top: 10px;
+    text-align: center;
+    font-size: 8.5px;
+    color: #4E7772;
+    line-height: 1.8;
+  }
+  .legal a { color: #4E7772; text-decoration: underline; }
+  .legal .sep { color: #A0CCC1; margin: 0 3px; }
+
+  /* Status bar dots */
+  .status-bar {
+    width: 100%;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    background: transparent;
+    position: relative; z-index: 1;
+    margin-top: 4px;
+  }
+  .status-time { font-size: 9px; font-weight: 700; color: #152020; }
+  .status-icons { display: flex; gap: 4px; align-items: center; }
+  .status-icons svg { width: 10px; height: 10px; fill: #152020; opacity: 0.7; }
+
+  /* vote badge */
+  .vote-badge {
+    background: rgba(160,204,193,0.18);
+    border: 1px solid rgba(78,119,114,0.2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 11px;
+    color: #4E7772;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .vote-badge:hover {
+    background: #4E7772;
+    color: #fff;
+    border-color: #4E7772;
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <h1 style="text-align:center;">בחירת לוגו — עופרים</h1>
+  <p class="subtitle">בחר איזה לוגו מתאים הכי טוב לדף הבית</p>
+</div>
+
+<div class="phones-row">
+
+  <!-- Option A: No background (transparent) -->
+  <div class="phone-col">
+    <div class="option-label">A — שקוף
+      <span>ללא רקע, ליניארי</span>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg viewBox="0 0 24 24"><path d="M1 6l5.5 5.5L12 6l5.5 5.5L23 6"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+        <div class="screen-inner">
+          <div class="logo-area">
+            <img src="logo mockup/homepage logo no back.jpeg" class="logo-img no-bg" alt="logo A">
+          </div>
+          <div class="nav-cards">
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">מי אנחנו</div><div class="card-desc">קצת עלינו</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">לוח אירועים</div><div class="card-desc">צפייה באירועים והרשמה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">האזור שלי</div><div class="card-desc">כניסה, הרשמה וצפייה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+          </div>
+          <div class="legal">
+            <a href="#">תקנון</a><span class="sep">·</span><a href="#">פרטיות</a><span class="sep">·</span><a href="#">ביטולים</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: White background square -->
+  <div class="phone-col">
+    <div class="option-label">B — מרובע לבן
+      <span>רקע לבן, פינות מעוגלות</span>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg viewBox="0 0 24 24"><path d="M1 6l5.5 5.5L12 6l5.5 5.5L23 6"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+        <div class="screen-inner">
+          <div class="logo-area">
+            <img src="logo mockup/homepage logo.jpeg" class="logo-img square" alt="logo B">
+          </div>
+          <div class="nav-cards">
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">מי אנחנו</div><div class="card-desc">קצת עלינו</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">לוח אירועים</div><div class="card-desc">צפייה באירועים והרשמה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">האזור שלי</div><div class="card-desc">כניסה, הרשמה וצפייה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+          </div>
+          <div class="legal">
+            <a href="#">תקנון</a><span class="sep">·</span><a href="#">פרטיות</a><span class="sep">·</span><a href="#">ביטולים</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C: Round light green -->
+  <div class="phone-col">
+    <div class="option-label">C — עיגול בז׳
+      <span>רקע ירוק בהיר, עגול</span>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg viewBox="0 0 24 24"><path d="M1 6l5.5 5.5L12 6l5.5 5.5L23 6"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+        <div class="screen-inner">
+          <div class="logo-area">
+            <div class="logo-circle-wrap"><img src="logo mockup/round brownish.jpeg" alt="logo C"></div>
+          </div>
+          <div class="nav-cards">
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">מי אנחנו</div><div class="card-desc">קצת עלינו</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">לוח אירועים</div><div class="card-desc">צפייה באירועים והרשמה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">האזור שלי</div><div class="card-desc">כניסה, הרשמה וצפייה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+          </div>
+          <div class="legal">
+            <a href="#">תקנון</a><span class="sep">·</span><a href="#">פרטיות</a><span class="sep">·</span><a href="#">ביטולים</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option D: Round dark teal -->
+  <div class="phone-col">
+    <div class="option-label">D — עיגול ירוק
+      <span>רקע ירוק כהה, עגול</span>
+    </div>
+    <div class="phone">
+      <div class="screen">
+        <div class="status-bar">
+          <span class="status-time">9:41</span>
+          <div class="status-icons">
+            <svg viewBox="0 0 24 24"><path d="M1 6l5.5 5.5L12 6l5.5 5.5L23 6"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="11" rx="2"/><path d="M22 11h2v4h-2"/></svg>
+          </div>
+        </div>
+        <div class="screen-inner">
+          <div class="logo-area">
+            <div class="logo-circle-wrap"><img src="logo mockup/roung green.jpeg" alt="logo D"></div>
+          </div>
+          <div class="nav-cards">
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">מי אנחנו</div><div class="card-desc">קצת עלינו</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">לוח אירועים</div><div class="card-desc">צפייה באירועים והרשמה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+            <div class="nav-card">
+              <div class="card-text"><div class="card-title">האזור שלי</div><div class="card-desc">כניסה, הרשמה וצפייה</div></div>
+              <span class="chevron"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></span>
+            </div>
+          </div>
+          <div class="legal">
+            <a href="#">תקנון</a><span class="sep">·</span><a href="#">פרטיות</a><span class="sep">·</span><a href="#">ביטולים</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="color:rgba(255,255,255,0.25); font-size:11px; text-align:center;">
+  לחץ על האפשרות המועדפת עליך
+</p>
+
+</body>
+</html>
