@@ -745,10 +745,13 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   const spots = ticketType === 'couple' ? 2 : 1
 
   const event = await c.env.DB.prepare(
-    'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message FROM events WHERE id = ?'
+    'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message, registration_closed FROM events WHERE id = ?'
   ).bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
   if (event.registration_closed) return c.json({ error: 'ההרשמה לאירוע זה סגורה.' }, 400)
+
+  const today = new Date().toISOString().slice(0, 10)
+  if (event.date < today) return c.json({ error: 'לא ניתן להירשם לאירוע שכבר עבר.' }, 400)
 
   // Reject couple ticket if the event doesn't allow it.
   if (ticketType === 'couple' && !event.allow_couples) {

@@ -72,6 +72,10 @@ function formatHeDate(dateStr) {
   return heDateFmt.format(new Date(y, m - 1, d));
 }
 
+function isPastEvent(dateStr) {
+  return (dateStr || '') < new Date().toISOString().slice(0, 10);
+}
+
 async function apiFetch(url, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   const token = getUserToken();
@@ -154,6 +158,7 @@ function DayPopup({ day, month, year, events, onEventClick, onClose }) {
           {events.length === 0 ? (
             <p style={{textAlign:'center', color:'#9ca3af', fontSize:'14px', padding:'32px 0'}}>אין אירועים בתאריך זה</p>
           ) : events.map(ev => {
+            const past = isPastEvent(ev.date);
             const full = ev.registration_closed || (ev.spots_left !== null && ev.spots_left <= 0);
             return (
               <div key={ev.id} onClick={() => { onClose(); onEventClick(ev); }} style={{
@@ -169,9 +174,11 @@ function DayPopup({ day, month, year, events, onEventClick, onClose }) {
                   <div style={{fontWeight:600, fontSize:'14px', color:'#152020', marginBottom:'3px'}}>{ev.title}</div>
                   {ev.time && <div style={{fontSize:'12px', color:'#6b7280'}}>{ev.time}{ev.end_time ? ` - ${ev.end_time}` : ''}</div>}
                   {ev.location && <div style={{fontSize:'12px', color:'#6b7280'}}>{ev.location}</div>}
-                  <div style={{fontSize:'12px', fontWeight:600, marginTop:'4px', color: full ? '#ef4444' : '#16a34a'}}>
-                    {full ? 'הרשמה מלאה' : 'יש מקום פנוי'}
-                  </div>
+                  {!past && (
+                    <div style={{fontSize:'12px', fontWeight:600, marginTop:'4px', color: full ? '#ef4444' : '#16a34a'}}>
+                      {full ? 'הרשמה מלאה' : 'יש מקום פנוי'}
+                    </div>
+                  )}
                 </div>
                 <span style={{color:'#d1d5db', fontSize:'14px', flexShrink:0, marginTop:'2px'}}>›</span>
               </div>
@@ -274,6 +281,7 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
 
   const isClosed = !!event.registration_closed;
   const isFull = isClosed || (event.spots_left !== null && event.spots_left <= 0);
+  const past = isPastEvent(event.date);
 
   // Couple ticket needs 2 free spots; single needs 1.
   const spotsNeeded = ticketType === 'couple' ? 2 : 1;
@@ -327,13 +335,19 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
           <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap">{event.description}</p>
         )}
 
-        {/* Availability */}
-        <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-semibold ${isClosed ? 'bg-amber-50 text-amber-700' : isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-          {isClosed ? 'ההרשמה לאירוע זה סגורה' : isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}
-        </div>
+        {/* Availability — hidden for past events, which are informational only */}
+        {past ? (
+          <div className="mb-4 px-4 py-3 rounded-lg text-sm font-semibold bg-gray-100 text-gray-500">
+            האירוע הסתיים
+          </div>
+        ) : (
+          <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-semibold ${isClosed ? 'bg-amber-50 text-amber-700' : isFull ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+            {isClosed ? 'ההרשמה לאירוע זה סגורה' : isFull ? 'הרשמה מלאה' : 'יש מקום פנוי'}
+          </div>
+        )}
 
         {/* Ticket type selector — shown only when the event allows couples */}
-        {!isFull && event.allow_couples ? (
+        {!past && !isFull && event.allow_couples ? (
           <div className="mb-4">
             <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">סוג כרטיס</p>
             <div className="grid grid-cols-2 gap-2">
@@ -360,7 +374,7 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
         ) : null}
 
         {/* Dynamic price display */}
-        {!isFull && (
+        {!past && !isFull && (
           <div className="mb-4 flex items-center justify-between px-4 py-2.5 rounded-lg" style={{background:'#f8f9fa'}}>
             <span className="text-sm font-semibold text-gray-600">מחיר לתשלום</span>
             <span className="font-bold text-base" style={{color:'#152020'}}>
@@ -370,7 +384,7 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
         )}
 
         {/* Registration form */}
-        {!isFull && !notEnoughRoom ? (
+        {!past && !isFull && !notEnoughRoom ? (
           <>
             <h4 className="font-semibold text-sm mb-3">הרשמה לאירוע</h4>
             {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-3 text-sm">{error}</div>}
@@ -450,7 +464,7 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
               </form>
             )}
           </>
-        ) : isFull ? (
+        ) : past ? null : isFull ? (
           <div className="text-center py-4 text-gray-400">
             {isClosed ? 'ההרשמה לאירוע זה סגורה.' : 'ההרשמה סגורה — האירוע מלא.'}
           </div>
