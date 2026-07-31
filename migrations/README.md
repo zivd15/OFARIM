@@ -4,21 +4,11 @@ Incremental SQL applied **in order** to an existing D1 database. For a brand-new
 database, `schema.sql` already contains the final shape — run that instead (these
 migrations are not needed for a fresh DB).
 
-**Applied automatically on every push (as of 2026-07-31).** Both `deploy.yml` and
-`deploy-staging.yml` run `npx wrangler d1 migrations apply` against the matching D1
-database (`ofarim` / `ofarim-staging`) as a step *before* the Pages deploy, using
-wrangler's built-in migration tracking (`d1_migrations` table — records which files
-have already run, so nothing here is ever re-executed once applied). Add a new file
-here and it lands on both environments automatically the next time each branch is
-pushed — no manual `wrangler d1 execute` step required anymore.
-
-To run one manually (local dev, or investigating something):
+Apply each to the remote DB with:
 ```bash
-npx wrangler d1 migrations apply ofarim --remote            # prod
-npx wrangler d1 migrations apply ofarim-staging --remote --env preview   # staging
+npx wrangler d1 execute ofarim --file=migrations/<file>.sql --remote
 ```
-(omit `--remote` for local). Avoid `wrangler d1 execute --file=...` for these files
-going forward — it bypasses the tracking table and can double-apply a migration.
+(omit `--remote` for local).
 
 ## Order & purpose
 
@@ -45,17 +35,15 @@ table didn't have the column, the query threw, and the calendar silently showed 
 events — no error visible to users, no crash, just an empty list.
 
 **Rule going forward:** any DB schema change gets a numbered file in this folder *first*,
-committed in the same PR as the code that depends on it — CI applies it to both databases
-automatically on the next push to `staging` / `main`, so it can no longer land on one and
-not the other. `schema.sql` is auto-generated (`npm run db:export:prod`) and should never
-be hand-edited to "declare" a column that hasn't actually been applied.
+committed in the same PR as the code that depends on it. Before merging `staging` → `main`,
+run every new migration against **both** `ofarim-staging` and `ofarim` (prod) — staging-only
+is not done. `schema.sql` is auto-generated (`npm run db:export:prod`) and should never be
+hand-edited to "declare" a column that hasn't actually been applied.
 
 ## ⚠️ One-time / non-idempotent
 
 - **`0003_price_to_agorot.sql`** multiplies `price` by 100. Running it twice would scale
-  prices ×10000. Run it **once**. `wrangler d1 migrations apply` won't re-run it as long
-  as it's already recorded in `d1_migrations` — this only bites if someone runs it by hand
-  via `wrangler d1 execute --file=...` instead of the tracked `migrations apply` command.
+  prices ×10000. Run it **once**.
 
 ## SQLite gotchas baked into these files
 

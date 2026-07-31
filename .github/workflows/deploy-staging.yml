@@ -21,12 +21,6 @@ jobs:
 
       - run: npm install
 
-      - name: Apply pending D1 migrations (ofarim-staging)
-        run: npx wrangler d1 migrations apply ofarim-staging --remote --env preview
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: b7f764b89247019e1cd85c6d5064075a
-
       - name: Deploy preview (staging branch)
         run: npx wrangler pages deploy public --project-name=ofarim --branch=staging --commit-dirty=true
         env:
