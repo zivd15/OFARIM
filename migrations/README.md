@@ -24,6 +24,21 @@ npx wrangler d1 execute ofarim --file=migrations/<file>.sql --remote
 | 0008 | `0008_event_payment_link.sql` | `events.payment_link` | Per-event Bit/PayBox URL. |
 | 0009 | `0009_participant_notes.sql` | `participants.notes` | Optional free-text on registration. |
 | 0010 | `0010_email_content.sql` | `events.confirmation_message`, `events.reminder_message`; `participants.reminder_sent` | Per-event confirmation & 24h reminder email text. |
+| 0011 | `0011_registration_closed.sql` | `events.registration_closed` | FOMO toggle. Was previously applied only to `ofarim-staging`, undocumented — broke prod on 2026-07-31 when the code shipped without it. |
+
+## ⚠️ Every schema change needs a migration file — no exceptions
+
+The 0011 incident: a column was added to `ofarim-staging` by hand, noted only as a loose
+comment in `schema.sql`, and never run against production. The code that depended on it
+(`SELECT ... e.registration_closed ...`) shipped to `main` anyway, production's `events`
+table didn't have the column, the query threw, and the calendar silently showed zero
+events — no error visible to users, no crash, just an empty list.
+
+**Rule going forward:** any DB schema change gets a numbered file in this folder *first*,
+committed in the same PR as the code that depends on it. Before merging `staging` → `main`,
+run every new migration against **both** `ofarim-staging` and `ofarim` (prod) — staging-only
+is not done. `schema.sql` is auto-generated (`npm run db:export:prod`) and should never be
+hand-edited to "declare" a column that hasn't actually been applied.
 
 ## ⚠️ One-time / non-idempotent
 
