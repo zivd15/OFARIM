@@ -597,15 +597,48 @@ function buildConfirmationEmail(ev, participantName) {
   </div>`
 }
 
+// "היום" if the event's date is today (server/UTC date), otherwise "מחר" — covers
+// both the normal 24h-ahead cron send and an immediate send for a same-day,
+// last-minute confirmation (where "tomorrow" would be wrong).
+function reminderTimingLabel(dateStr) {
+  return dateStr === new Date().toISOString().slice(0, 10) ? 'היום' : 'מחר'
+}
+
+// Hours from now until the event's start (date + time, '00:00' if time is unset).
+// Used to decide whether a just-confirmed registration is inside the 24h reminder
+// window and needs its reminder sent immediately, since the cron sweep already
+// passed that mark and won't catch it.
+function hoursUntilEventStart(dateStr, timeStr) {
+  const start = new Date(`${dateStr}T${timeStr || '00:00'}:00`)
+  return (start.getTime() - Date.now()) / 3_600_000
+}
+
 function buildReminderEmail(ev, participantName) {
   const details = eventEmailDetails(ev)
+  const timing = reminderTimingLabel(ev.date)
   return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
     <h2 style="color:#152020;">שלום ${escapeHtml(participantName)},</h2>
-    <p>תזכורת — האירוע <strong>${escapeHtml(ev.title)}</strong> מתקיים <strong>מחר</strong>!</p>
+    <p>תזכורת — האירוע <strong>${escapeHtml(ev.title)}</strong> מתקיים <strong>${timing}</strong>!</p>
     <p style="color:#555;">${details}</p>
     ${ev.reminder_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${escapeHtml(ev.reminder_message).replace(/\n/g,'<br>')}</div>` : ''}
     <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
   </div>`
+}
+
+// Sends the 24h reminder to one confirmed participant right now and marks it sent.
+// Shared by the cron sweep and by the immediate "confirmed inside the 24h window"
+// paths in /register and /confirm-payment, so both stay in sync with the same
+// eligibility rule (a reminder_message must be set) and never double-send thanks
+// to reminder_sent.
+async function sendReminderNow(env, ev, participant) {
+  if (!ev.reminder_message || !participant.email) return
+  await sendBrevoEmail(env, {
+    to: participant.email,
+    name: participant.name,
+    subject: `תזכורת — ${ev.title} ${reminderTimingLabel(ev.date)}`,
+    htmlContent: buildReminderEmail(ev, participant.name),
+  }).catch(() => {})
+  await env.DB.prepare('UPDATE participants SET reminder_sent = 1 WHERE id = ?').bind(participant.id).run()
 }
 
 // Admin notification sent to ofarim.grow@gmail.com on every new registration —
@@ -745,7 +778,7 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   const spots = ticketType === 'couple' ? 2 : 1
 
   const event = await c.env.DB.prepare(
-    'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message, registration_closed FROM events WHERE id = ?'
+    'SELECT id, title, date, time, end_time, location, max_participants, price, allow_couples, couple_price, confirmation_message, reminder_message, registration_closed FROM events WHERE id = ?'
   ).bind(c.req.param('id')).first()
   if (!event) return c.json({ error: 'Event not found' }, 404)
   if (event.registration_closed) return c.json({ error: 'ההרשמה לאירוע זה סגורה.' }, 400)
@@ -795,10 +828,12 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
   // Paid events get a 'pending' hold the sweeper can expire after 12 hours.
   const status = held ? (isFree ? 'confirmed' : 'pending') : 'waitlisted'
 
+  let participantId
   try {
-    await c.env.DB.prepare(
+    const inserted = await c.env.DB.prepare(
       "INSERT INTO participants (event_id, name, phone, email, user_id, status, ticket_type, spots, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))"
     ).bind(event.id, name.trim(), phone?.trim() || '', email?.trim() || '', userId, status, ticketType, spots, notes?.trim() || null).run()
+    participantId = inserted.meta.last_row_id
   } catch (err) {
     // UNIQUE constraint on (event_id, user_id) fired — concurrent duplicate.
     // The seat counter was already incremented above; undo it (by spots) so the cap stays accurate.
@@ -839,6 +874,11 @@ app.post('/events/:id/register', optionalAuthMiddleware, async c => {
           subject: `אישור הרשמה — ${event.title}`,
           htmlContent: buildConfirmationEmail(event, name.trim()),
         })
+      }
+      // Registered inside the 24h reminder window — the cron sweep already passed
+      // that mark for this event, so send the reminder right now instead of never.
+      if (hoursUntilEventStart(event.date, event.time) <= 24) {
+        await sendReminderNow(c.env, event, { id: participantId, name: name.trim(), email: email?.trim() || '' })
       }
       return c.json({ status: 'confirmed', message: 'נרשמת בהצלחה! המקום שלך מאושר.' }, 200)
     }
@@ -916,7 +956,7 @@ app.post('/events/:id/confirm-payment', async c => {
   // Send confirmation email for paid registrations confirmed by admin
   if (updated.email) {
     const ev = await c.env.DB.prepare(
-      'SELECT title, date, time, end_time, location, confirmation_message FROM events WHERE id = ?'
+      'SELECT title, date, time, end_time, location, confirmation_message, reminder_message FROM events WHERE id = ?'
     ).bind(c.req.param('id')).first()
     if (ev?.confirmation_message) {
       await sendBrevoEmail(c.env, {
@@ -925,6 +965,11 @@ app.post('/events/:id/confirm-payment', async c => {
         subject: `אישור הרשמה — ${ev.title}`,
         htmlContent: buildConfirmationEmail(ev, updated.name),
       })
+    }
+    // Confirmed inside the 24h reminder window (e.g. payment cleared last-minute)
+    // — the cron sweep already passed that mark, so send the reminder right now.
+    if (ev && hoursUntilEventStart(ev.date, ev.time) <= 24) {
+      await sendReminderNow(c.env, ev, { id: updated.id, name: updated.name, email: updated.email })
     }
   }
 
@@ -1027,8 +1072,13 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
 })
 
 // ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
-// Called daily by GitHub Actions. Sends reminder emails to all confirmed
-// participants of events happening tomorrow that haven't been reminded yet.
+// Called every 15 minutes by GitHub Actions. Sends reminder emails to confirmed
+// participants of events whose start is within the next 24 hours (real
+// date+time window, not "tomorrow's calendar date") and haven't been reminded
+// yet. A last-minute registration confirmed inside that same window is instead
+// reminded immediately at confirmation time (see sendReminderNow call sites in
+// /register and /confirm-payment) — by the time it happens the 24h mark for
+// that event has already passed, so this sweep would never catch it.
 app.post('/internal/send-reminders', async c => {
   const cronSecret = c.env.CRON_SECRET
   if (!cronSecret) return c.json({ error: 'CRON_SECRET not configured' }, 500)  // fail closed
@@ -1038,10 +1088,16 @@ app.post('/internal/send-reminders', async c => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
-  // Events happening tomorrow (server time = UTC; adjust if needed)
-  const { results: events } = await c.env.DB.prepare(
-    "SELECT id, title, date, time, end_time, location, reminder_message FROM events WHERE date = date('now', '+1 day') AND reminder_message IS NOT NULL AND reminder_message != ''"
-  ).all()
+  // Events whose start (date + time, defaulting to 00:00) is at most 24h away,
+  // and hasn't finished yet (end_time, else time, else end-of-day). Server time
+  // is UTC; date/time columns are stored as entered (Israel local), same as the
+  // rest of the app — adjust if that assumption ever changes.
+  const { results: events } = await c.env.DB.prepare(`
+    SELECT id, title, date, time, end_time, location, reminder_message FROM events
+    WHERE reminder_message IS NOT NULL AND reminder_message != ''
+      AND datetime(date || ' ' || COALESCE(NULLIF(time, ''), '00:00')) <= datetime('now', '+24 hours')
+      AND datetime(date || ' ' || COALESCE(NULLIF(end_time, ''), NULLIF(time, ''), '23:59')) >= datetime('now')
+  `).all()
 
   if (!events.length) return c.json({ reminded: 0 })
 
@@ -1052,13 +1108,7 @@ app.post('/internal/send-reminders', async c => {
     ).bind(ev.id).all()
 
     for (const p of participants) {
-      await sendBrevoEmail(c.env, {
-        to: p.email,
-        name: p.name,
-        subject: `תזכורת — ${ev.title} מחר`,
-        htmlContent: buildReminderEmail(ev, p.name),
-      }).catch(() => {})
-      await c.env.DB.prepare('UPDATE participants SET reminder_sent = 1 WHERE id = ?').bind(p.id).run()
+      await sendReminderNow(c.env, ev, p)
       reminded++
     }
   }
