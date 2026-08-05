@@ -1072,7 +1072,7 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
 })
 
 // ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
-// Called every 15 minutes by GitHub Actions. Sends reminder emails to confirmed
+// Called hourly by GitHub Actions. Sends reminder emails to confirmed
 // participants of events whose start is within the next 24 hours (real
 // date+time window, not "tomorrow's calendar date") and haven't been reminded
 // yet. A last-minute registration confirmed inside that same window is instead

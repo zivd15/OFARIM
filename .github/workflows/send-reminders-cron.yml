@@ -1,14 +1,17 @@
 name: Send 24h event reminders
 
 # Sends reminder emails to confirmed participants once their event is within
-# 24 hours. Runs every 15 minutes so the send time tracks the real 24h-before
-# mark (± up to 15 min) instead of a fixed daily time.
+# 24 hours. Runs hourly so the send time tracks the real 24h-before mark
+# (± up to ~1h) instead of a fixed daily time — plenty precise given events
+# are sparse (about one per day). A last-minute registration confirmed
+# inside the 24h window is reminded immediately at confirmation time
+# regardless of this cadence (see sendReminderNow call sites in the API).
 # Reuses the existing CRON_SECRET GitHub Actions secret.
 
 on:
   schedule:
-    - cron: '*/15 * * * *'    # every 15 minutes
-  workflow_dispatch:           # allow manual runs from the Actions tab
+    - cron: '0 * * * *'    # hourly, on the hour
+  workflow_dispatch:        # allow manual runs from the Actions tab
 
 jobs:
   remind:
