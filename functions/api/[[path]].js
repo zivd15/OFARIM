@@ -1071,6 +1071,40 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
   return c.json({ message: 'Participant removed' })
 })
 
+// TEMP DIAGNOSTIC — remove after the Brevo delivery investigation. Surfaces the
+// raw Brevo API response (status + body) directly in the JSON reply instead of
+// only console.error, so it can be inspected via curl without live log tailing.
+app.post('/internal/diag-brevo', async c => {
+  const secret = c.env.DIAG_TEST_SECRET
+  if (!secret) return c.json({ error: 'not configured' }, 500)
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (!constantTimeEqual(token, secret)) return c.json({ error: 'Forbidden' }, 403)
+
+  const brevoKey = c.env.BREVO_API_KEY
+  if (!brevoKey) return c.json({ error: 'BREVO_API_KEY missing' })
+
+  const body = await c.req.json().catch(() => ({}))
+  const to = body.to || 'ofarim.grow@gmail.com'
+  const payload = {
+    sender: { name: 'OFARIM', email: 'ofarim.grow@gmail.com' },
+    to: [{ email: to }],
+    subject: 'בדיקת מערכת — diag-brevo',
+    htmlContent: '<p>Test send from /internal/diag-brevo diagnostic route.</p>',
+  }
+  let res, text
+  try {
+    res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: { 'accept': 'application/json', 'api-key': brevoKey, 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    text = await res.text().catch(() => '<no body>')
+  } catch (e) {
+    return c.json({ threw: true, message: e?.message, stack: e?.stack })
+  }
+  return c.json({ threw: false, status: res.status, ok: res.ok, body: text, keyPrefix: brevoKey.slice(0, 8), keyLength: brevoKey.length })
+})
+
 // ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
 // Called hourly by GitHub Actions. Sends reminder emails to confirmed
 // participants of events whose start is within the next 24 hours (real
