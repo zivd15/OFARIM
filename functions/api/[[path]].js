@@ -1071,6 +1071,29 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
   return c.json({ message: 'Participant removed' })
 })
 
+// TEMP DIAGNOSTIC — remove after the Brevo delivery investigation. Queries
+// Brevo's own event log (requests/delivered/bounces/blocked/spam) for a given
+// recipient so we can see what actually happened to a real send, instead of
+// guessing from our side.
+app.post('/internal/diag-brevo-events', async c => {
+  const secret = c.env.DIAG_TEST_SECRET
+  if (!secret) return c.json({ error: 'not configured' }, 500)
+  const token = c.req.header('authorization')?.split(' ')[1]
+  if (!constantTimeEqual(token, secret)) return c.json({ error: 'Forbidden' }, 403)
+
+  const brevoKey = c.env.BREVO_API_KEY
+  if (!brevoKey) return c.json({ error: 'BREVO_API_KEY missing' })
+
+  const body = await c.req.json().catch(() => ({}))
+  const email = body.email
+  if (!email) return c.json({ error: 'email is required' }, 400)
+
+  const url = `https://api.brevo.com/v3/smtp/statistics/events?email=${encodeURIComponent(email)}&limit=50&sort=desc`
+  const res = await fetch(url, { headers: { accept: 'application/json', 'api-key': brevoKey } })
+  const text = await res.text().catch(() => '<no body>')
+  return c.json({ status: res.status, ok: res.ok, body: text })
+})
+
 // ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
 // Called hourly by GitHub Actions. Sends reminder emails to confirmed
 // participants of events whose start is within the next 24 hours (real
