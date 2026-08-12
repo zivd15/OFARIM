@@ -597,19 +597,55 @@ function buildConfirmationEmail(ev, participantName) {
   </div>`
 }
 
-// "היום" if the event's date is today (server/UTC date), otherwise "מחר" — covers
-// both the normal 24h-ahead cron send and an immediate send for a same-day,
-// last-minute confirmation (where "tomorrow" would be wrong).
-function reminderTimingLabel(dateStr) {
-  return dateStr === new Date().toISOString().slice(0, 10) ? 'היום' : 'מחר'
+// Israel's UTC offset (in minutes) at a given instant — +120 in winter (IST),
+// +180 in summer (IDT). The Workers runtime has no local timezone of its own
+// (everything is UTC), and event date/time fields are entered by the admin as
+// Israel wall-clock time with no timezone marker, so every place that needs to
+// know "how long until this event, really" must convert through this first.
+// Previously this offset was silently dropped (Israel-local strings compared
+// directly against UTC), which delayed reminders by ~2-3h — see 2026-08-12
+// incident: 3 confirmed participants got their reminder ~3h20m-3h50m later
+// than the intended 24h-before mark.
+function jerusalemOffsetMinutes(utcInstant) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Jerusalem', timeZoneName: 'shortOffset',
+  }).formatToParts(utcInstant)
+  const m = (parts.find(p => p.type === 'timeZoneName')?.value || 'GMT+3').match(/GMT([+-])(\d+)(?::(\d+))?/)
+  if (!m) return 180 // fallback: summer (IDT) default
+  const sign = m[1] === '-' ? -1 : 1
+  return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3] || '0', 10))
 }
 
-// Hours from now until the event's start (date + time, '00:00' if time is unset).
+// Converts a 'YYYY-MM-DD' + 'HH:MM' pair — entered as Israel local time, as the
+// admin sees it in the form — into the correct absolute UTC Date instant.
+// DST-aware (uses the real offset for that specific date, not a fixed +3).
+function israelLocalToUTC(dateStr, timeStr) {
+  const naiveAsUTC = new Date(`${dateStr}T${timeStr || '00:00'}:00Z`) // numbers taken at face value as UTC first
+  const offsetMin = jerusalemOffsetMinutes(naiveAsUTC)
+  return new Date(naiveAsUTC.getTime() - offsetMin * 60_000) // shift back to the real UTC instant
+}
+
+// Today's date (YYYY-MM-DD) in Israel local time — for comparing against event
+// dates, which are entered in Israel local time. Using UTC's own date here would
+// flip "today" a few hours early/late around midnight Israel time.
+function todayInIsrael() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date())
+}
+
+// "היום" if the event's date is today in Israel, otherwise "מחר" — covers both
+// the normal 24h-ahead cron send and an immediate send for a same-day,
+// last-minute confirmation (where "tomorrow" would be wrong).
+function reminderTimingLabel(dateStr) {
+  return dateStr === todayInIsrael() ? 'היום' : 'מחר'
+}
+
+// Hours from now until the event's start (date + time, '00:00' if time is unset),
+// correctly converting the Israel-local date/time to a real UTC instant first.
 // Used to decide whether a just-confirmed registration is inside the 24h reminder
 // window and needs its reminder sent immediately, since the cron sweep already
 // passed that mark and won't catch it.
 function hoursUntilEventStart(dateStr, timeStr) {
-  const start = new Date(`${dateStr}T${timeStr || '00:00'}:00`)
+  const start = israelLocalToUTC(dateStr, timeStr)
   return (start.getTime() - Date.now()) / 3_600_000
 }
 
@@ -1088,16 +1124,23 @@ app.post('/internal/send-reminders', async c => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
-  // Events whose start (date + time, defaulting to 00:00) is at most 24h away,
-  // and hasn't finished yet (end_time, else time, else end-of-day). Server time
-  // is UTC; date/time columns are stored as entered (Israel local), same as the
-  // rest of the app — adjust if that assumption ever changes.
-  const { results: events } = await c.env.DB.prepare(`
+  // SQLite has no timezone/DST support, so it can't correctly compare Israel-local
+  // date/time strings against UTC 'now'. Instead: fetch a generous UTC-date-only
+  // candidate window (comparing dates as plain strings needs no timezone math and
+  // can only under-filter, never miss anything — ±1 day comfortably covers any
+  // Israel/UTC skew), then do the precise "is this within 24h, hasn't ended yet"
+  // check in JS via israelLocalToUTC/hoursUntilEventStart, which is DST-aware.
+  const { results: candidates } = await c.env.DB.prepare(`
     SELECT id, title, date, time, end_time, location, reminder_message FROM events
     WHERE reminder_message IS NOT NULL AND reminder_message != ''
-      AND datetime(date || ' ' || COALESCE(NULLIF(time, ''), '00:00')) <= datetime('now', '+24 hours')
-      AND datetime(date || ' ' || COALESCE(NULLIF(end_time, ''), NULLIF(time, ''), '23:59')) >= datetime('now')
+      AND date BETWEEN date('now', '-1 day') AND date('now', '+2 day')
   `).all()
+
+  const events = candidates.filter(ev => {
+    const hoursToStart = hoursUntilEventStart(ev.date, ev.time)
+    const hoursToEnd = hoursUntilEventStart(ev.date, ev.end_time || ev.time)
+    return hoursToStart <= 24 && hoursToEnd >= 0
+  })
 
   if (!events.length) return c.json({ reminded: 0 })
 
