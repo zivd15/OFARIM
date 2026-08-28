@@ -603,13 +603,8 @@ function BundleFeedCard({ bundle: b, onClick }) {
       style={{ background: '#152020', border: '2px solid #152020', borderRadius: 0, boxShadow: '0 4px 24px rgba(21,32,32,0.18)' }}>
 
       {/* Tier strip */}
-      <div className="flex items-center justify-between px-4 py-2" style={{ background: '#A09850' }}>
+      <div className="flex items-center px-4 py-2" style={{ background: '#A09850' }}>
         <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: '#152020' }}>סדרה</span>
-        {b.savings > 0 && (
-          <span className="text-[11px] font-black" style={{ color: '#152020' }}>
-            חסכי {fmtPrice(b.savings)}
-          </span>
-        )}
       </div>
 
       <div className="p-5">
@@ -635,16 +630,11 @@ function BundleFeedCard({ bundle: b, onClick }) {
           ))}
         </div>
 
-        {/* Price: the discounted total is the headline, the sum of the parts is the anchor */}
+        {/* Price — the series total, shown on its own with no comparison anchor */}
         <div className="flex items-baseline gap-3 mb-4">
           <span className="text-3xl font-black" style={{ color: '#fff' }}>
             {b.price <= 0 ? 'חינם' : fmtPrice(b.price)}
           </span>
-          {b.savings > 0 && (
-            <span className="text-base line-through" style={{ color: 'rgba(160,204,193,0.65)' }}>
-              {fmtPrice(b.original_total)}
-            </span>
-          )}
           <span className="text-xs mr-auto" style={{ color: '#A0CCC1' }}>לכל הסדרה</span>
         </div>
 
