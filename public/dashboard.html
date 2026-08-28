@@ -87,6 +87,14 @@
   .status-pending    { background: rgba(160,152,80,0.12);  color: #7a6e20; border: 1px solid rgba(160,152,80,0.25); }
   .status-waitlisted { background: rgba(151,119,184,0.12); color: #6a4e9a; border: 1px solid rgba(151,119,184,0.25); }
 
+  /* Marks a seat that came from a series purchase — sharp-cornered and inverted,
+     matching the series treatment on the events feed. */
+  .series-chip {
+    display: inline-block; margin: 6px 0 0;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.04em;
+    padding: 3px 8px; background: #152020; color: #A09850; white-space: nowrap;
+  }
+
   /* Event card */
   .event-card {
     background: #fff;
@@ -277,6 +285,15 @@
     if (ev.time)     meta.push(`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;flex-shrink:0;">${SVG.time}</span>${escHtml(ev.time)}${ev.end_time?' - '+escHtml(ev.end_time):''}</span>`);
     if (ev.location) meta.push(`<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:14px;height:14px;flex-shrink:0;">${SVG.loc}</span>${escHtml(ev.location)}</span>`);
     const canCancel = !isPast;
+    // A seat that came from a series is cancelled as a whole series — the API
+    // refuses to drop one meeting out of a bundle, so the button targets the bundle.
+    const inSeries = !!ev.bundle_id;
+    const cancelCall = inSeries
+      ? `cancelBundleRegistration(${ev.bundle_id},this)`
+      : `cancelRegistration(${ev.id},this)`;
+    const seriesChip = inSeries
+      ? `<span class="series-chip">סדרה · ${escHtml(ev.bundle_title || '')}</span>`
+      : '';
     return `
       <div class="event-card${isPast?' past':''}" id="card-${ev.id}">
         <div class="event-header">
@@ -284,11 +301,12 @@
           <div class="event-title">${escHtml(ev.title)}</div>
           ${statusBadge(ev.registration_status)}
         </div>
+        ${seriesChip}
         <div class="event-meta">${meta.join('')}</div>
         <div class="event-actions">
           <a class="btn-calendar" href="/api/events/${ev.id}/calendar.ics" download>${SVG.cal} הוספה ליומן</a>
           <a class="btn-view" href="/calendar">${SVG.list} צפייה בלוח</a>
-          ${canCancel?`<button class="btn-cancel" id="cancel-btn-${ev.id}" onclick="cancelRegistration(${ev.id},this)">${SVG.x} ביטול הרשמה</button>`:''}
+          ${canCancel?`<button class="btn-cancel" id="cancel-btn-${ev.id}" onclick="${cancelCall}">${SVG.x} ${inSeries?'ביטול הסדרה':'ביטול הרשמה'}</button>`:''}
         </div>
       </div>`;
   }
@@ -303,6 +321,19 @@
       const card = document.getElementById('card-' + eventId);
       if (card) { card.style.transition = 'opacity 0.3s'; card.style.opacity = '0'; setTimeout(() => { card.remove(); loadMyEvents(); }, 350); }
     } catch(e) { alert('שגיאת שרת'); btn.disabled = false; btn.textContent = '✕ ביטול הרשמה'; }
+  }
+
+  // Cancelling a series releases the seat in every one of its meetings, so the
+  // whole list is reloaded rather than a single card removed.
+  async function cancelBundleRegistration(bundleId, btn) {
+    if (!confirm('ביטול ההרשמה לסדרה יבטל את מקומך בכל מפגשי הסדרה. להמשיך?')) return;
+    btn.disabled = true; btn.textContent = 'מבטל...';
+    try {
+      const resp = await fetch(`/api/bundles/${bundleId}/cancel-registration`, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await resp.json();
+      if (!resp.ok) { alert(data.error || 'שגיאה בביטול ההרשמה'); btn.disabled = false; btn.textContent = '✕ ביטול הסדרה'; return; }
+      loadMyEvents();
+    } catch(e) { alert('שגיאת שרת'); btn.disabled = false; btn.textContent = '✕ ביטול הסדרה'; }
   }
 
   function togglePast() {

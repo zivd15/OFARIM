@@ -3,6 +3,30 @@
 Build history of the OFARIM backend/frontend hardening & feature work. Steps are
 feature milestones, not semver releases.
 
+## Step 11 — Bundles / Series
+- **Schema** (migration `0012`): `bundles` (discounted total in agorot), `bundle_events`
+  (line-up + order), `bundle_registrations` (one row per purchase), and
+  `participants.bundle_registration_id`. Series seats are ordinary `participants` rows, so
+  capacity, the expiry sweeper and the 24h reminders keep working unchanged.
+- **Atomic all-or-nothing registration**: `POST /api/bundles/:id/register` runs one
+  `DB.batch()` (= one SQLite transaction) that bumps `current_participants` on every event
+  of the series, then trips `trg_bundle_reg_no_overbook` → `RAISE(ABORT)` if that pushed any
+  capped event past its cap, rolling the increments back with it. A series is never
+  partially reserved and never overbooks. Verified against the Workers runtime: 8 concurrent
+  registrations on a series whose scarcest event had 1 seat → exactly 1 winner, no drift.
+- **Series lifecycle**: `DELETE /api/bundles/:id/cancel-registration` releases every seat and
+  promotes each event's waitlist; `POST /api/bundles/:id/confirm-payment` confirms all N seats
+  on one payment; the sweeper retires a parent row once its seats lapse (`bundles_expired`).
+  Cancelling a single meeting out of a series is refused (`409`).
+- **Admin**: new "סדרות" tab — create a series from existing events, set the discounted total
+  (live "saving vs. separately" readout), payment link, confirmation text and close-registration
+  toggle. The event picker locks once a series has registrations, matching the API's `409`.
+- **Feed & cross-sell**: series render as premium inverted cards ("סדרה של X מפגשים") above the
+  event cards; opening a single event that belongs to an available series shows an upsell
+  banner directly under its register button ("משתלם יותר: שדרגי להרשמה לכל הסדרה ב-… בלבד").
+- **Personal area**: series seats carry a "סדרה" chip and their cancel button cancels the
+  whole series.
+
 ## Step 10 — Security & reliability hardening
 - **Admin-role gate**: every event-management route (`GET/POST/PUT/DELETE /events…`,
   `GET /events/:id`, `…/participants/:pid`) now requires a `role:"admin"` JWT via

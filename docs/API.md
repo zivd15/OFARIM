@@ -135,3 +135,76 @@ Delete an event (cascades to its participants).
 
 ### `DELETE /api/events/:id/participants/:pid`
 Remove a single participant from an event.
+
+---
+
+## Bundles / Series
+
+A **bundle** groups several existing events and sells them as one "סדרה" at a single
+discounted total (`bundles.price`, agorot). Registering holds a seat in **every** event of
+the bundle inside one transaction — all of them or none. The per-event seats are ordinary
+`participants` rows carrying `bundle_registration_id`, so capacity, the expiry sweeper and
+the 24h reminders all keep working unchanged. Schema: migration `0012_bundles.sql`.
+
+### 🔓 `GET /api/bundles/public`
+Every series that is not entirely in the past, each with its ordered `events` array and:
+`events_count`, `original_total` (sum of the events' own prices), `savings`,
+`spots_left` (the scarcest event in the series; `null` if none is capped), `sold_out`,
+`blocked_by` (`{ id, title, reason: "full"|"past"|"closed" }` or `null`), `first_date`, `last_date`.
+A series is sellable only while **every** event in it is.
+
+### 🔓 `POST /api/bundles/:id/register`
+Register for the whole series. Body: `{ name*, phone?, email?, notes? }`. Any
+client-supplied `user_id` is **ignored** (ownership comes from the JWT) — anti-IDOR.
+One seat (`spots = 1`) is held in each event; couple tickets are not offered on series.
+- `200` → `{ status: "confirmed", events_count }` (free) · `{ status: "pending", events_count, payment_link }` (paid, 12h hold)
+- `400` missing name / registration closed / empty series · `404` bundle not found
+- `409` an event is full/past/closed, or the caller is already registered to the series or to one of its events.
+
+**Atomicity** — one `DB.batch()` (= one SQLite transaction):
+1. `current_participants + 1` on every event of the bundle, unconditionally;
+2. `INSERT INTO bundle_registrations`, which fires `trg_bundle_reg_no_overbook` and
+   `RAISE(ABORT, 'BUNDLE_EVENT_FULL')` if step 1 pushed any capped event past its cap —
+   failing the batch and rolling step 1 back with it;
+3. `INSERT` the N `participants` rows, linked to their parent by a one-shot `token`
+   (a batch statement cannot read a previous statement's `RETURNING` id).
+
+There is no interleaving window, so a series is never partially reserved and never
+overbooks an event. The pre-flight check ahead of the batch exists only to return a
+precise Hebrew reason instead of a bare rollback.
+
+### 👤 `DELETE /api/bundles/:id/cancel-registration`
+Cancel the whole series: deletes all its participant rows, releases each seat and
+promotes each event's first waiter. Cancelling a **single** event of a series is refused
+by `DELETE /api/events/:id/cancel-registration` with `409` + `{ bundle_id }`.
+
+### 🤖 `POST /api/bundles/:id/confirm-payment`
+Confirm a pending series after its single payment clears. Body: `{ "registration_id": <id> }`.
+Flips the parent row and all N seats to `confirmed` together, sends the series confirmation
+email, and immediately sends the 24h reminder for any meeting already inside that window.
+- `200` → `{ message: "Payment confirmed", registration_id, events_confirmed }`
+- `400` `"Hold expired or invalid"` · `403` unauthorized.
+
+---
+
+## Bundles — admin (🛡️ all require admin JWT)
+
+### `GET /api/bundles`
+All series with their events, pricing fields and `confirmed_count` / `pending_count`.
+
+### `GET /api/bundles/:id`
+One series plus its non-expired `registrations`.
+
+### `POST /api/bundles`
+Create. Body: `{ title*, event_ids* (≥2), description?, price?, color?, payment_link?, confirmation_message?, registration_closed? }`.
+`price` is sent in **ILS** and converted to agorot server-side. `event_ids` are stored in
+running order. `400` if fewer than two ids or any id doesn't exist.
+
+### `PUT /api/bundles/:id`
+Update (partial; omitted fields keep existing values). Sending `event_ids` for a series
+that already has non-expired registrations returns `409` — changing the line-up would
+strand held seats in events no longer in the series. Price and texts stay editable.
+
+### `DELETE /api/bundles/:id`
+Delete a series (the events themselves are untouched). `409` while it still has
+non-expired registrations.
