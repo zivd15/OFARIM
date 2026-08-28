@@ -257,7 +257,35 @@ function DayGrid({ month, year, events, onEventClick, onDayClick }) {
 }
 
 // ─── Event Detail + Sign Up Modal ────────────────────────
-function EventModal({ event, onClose, onRegistered, onShare }) {
+// ─── Series upsell ───────────────────────────────────────
+// Shown directly under an event's register button when that event is also part of
+// a still-available series: the cheapest moment to upgrade is before committing to
+// the single ticket. `upsellBundle` is null whenever there's nothing to offer.
+function SeriesUpsellBanner({ bundle: b, eventPrice, onUpgrade }) {
+  return (
+    <button type="button" onClick={onUpgrade}
+      className="w-full mt-3 text-right transition hover:opacity-95 active:scale-[0.99]"
+      style={{ background: '#152020', borderRadius: 0, border: '2px solid #A09850' }}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em] px-1.5 py-0.5 flex-shrink-0"
+          style={{ background: '#A09850', color: '#152020' }}>סדרה</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-black leading-snug" style={{ color: '#fff' }}>
+            משתלם יותר: שדרגי להרשמה לכל הסדרה ב-{fmtPrice(b.price)} בלבד
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: '#A0CCC1' }}>
+            {b.events_count} מפגשים
+            {b.savings > 0 && <> · חיסכון של {fmtPrice(b.savings)}</>}
+            {eventPrice > 0 && <> · במקום {fmtPrice(b.original_total)} בנפרד</>}
+          </div>
+        </div>
+        <span className="text-lg flex-shrink-0" style={{ color: '#A09850' }}>←</span>
+      </div>
+    </button>
+  );
+}
+
+function EventModal({ event, onClose, onRegistered, onShare, upsellBundle, onUpgrade }) {
   const userData = getUserData();
   const [name, setName] = useState(userData?.name || '');
   const [phone, setPhone] = useState(userData?.phone || '');
@@ -461,6 +489,12 @@ function EventModal({ event, onClose, onRegistered, onShare }) {
                   {loading && <div className="spinner" style={{width:16,height:16,borderWidth:2}}></div>}
                   הרשמה
                 </button>
+                {/* Cross-sell — sits directly below the register button, and only
+                    before the user has committed to the single ticket. */}
+                {upsellBundle && (
+                  <SeriesUpsellBanner bundle={upsellBundle} eventPrice={displayPrice}
+                    onUpgrade={() => onUpgrade(upsellBundle)} />
+                )}
               </form>
             )}
           </>
@@ -544,14 +578,280 @@ function EventFeedCard({ event: ev, onClick, onShare }) {
   );
 }
 
+// ─── Bundle (series) ─────────────────────────────────────
+// A bundle is sold as one unit at one discounted price. Everything here treats it
+// that way: one price, one CTA, one availability state for the whole series.
+
+// Compact "12 באוגוסט" — the series card lists several dates, so the full
+// weekday+year format used elsewhere would drown the card.
+const heShortDateFmt = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long' });
+function formatHeShortDate(dateStr) {
+  const [y, m, d] = (dateStr || '').split('-').map(Number);
+  if (!y) return dateStr || '';
+  return heShortDateFmt.format(new Date(y, m - 1, d));
+}
+
+// Premium feed card. Inverted (dark ground, gold accents, sharp corners) so a
+// series reads as a different, higher-tier product than the white event cards
+// around it, without introducing any colour outside the existing palette.
+function BundleFeedCard({ bundle: b, onClick }) {
+  const soldOut = !!b.sold_out;
+  const almostFull = !soldOut && b.spots_left !== null && b.spots_left > 0 && b.spots_left <= 5;
+  return (
+    <div onClick={() => !soldOut && onClick(b)}
+      className={`overflow-hidden transition ${soldOut ? 'opacity-60' : 'cursor-pointer hover:shadow-xl'}`}
+      style={{ background: '#152020', border: '2px solid #152020', borderRadius: 0, boxShadow: '0 4px 24px rgba(21,32,32,0.18)' }}>
+
+      {/* Tier strip */}
+      <div className="flex items-center justify-between px-4 py-2" style={{ background: '#A09850' }}>
+        <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: '#152020' }}>סדרה</span>
+        {b.savings > 0 && (
+          <span className="text-[11px] font-black" style={{ color: '#152020' }}>
+            חסכי {fmtPrice(b.savings)}
+          </span>
+        )}
+      </div>
+
+      <div className="p-5">
+        <h3 className="text-xl font-black leading-tight mb-1" style={{ color: '#fff' }}>{b.title}</h3>
+        <p className="text-sm font-bold mb-3" style={{ color: '#A09850' }}>
+          סדרה של {b.events_count} מפגשים
+        </p>
+
+        {b.description && (
+          <p className="text-sm mb-4 leading-relaxed line-clamp-3" style={{ color: '#A0CCC1' }}>{b.description}</p>
+        )}
+
+        {/* The meetings, so the value of the series is visible before opening it */}
+        <div className="mb-4" style={{ borderTop: '1px solid rgba(160,204,193,0.2)', borderBottom: '1px solid rgba(160,204,193,0.2)' }}>
+          {b.events.map((ev, i) => (
+            <div key={ev.id} className="flex items-center gap-3 py-2"
+              style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(160,204,193,0.1)' }}>
+              <span className="text-[11px] font-black flex-shrink-0 w-5 text-center"
+                style={{ color: '#152020', background: '#A0CCC1' }}>{i + 1}</span>
+              <span className="text-sm font-semibold flex-1 min-w-0 truncate" style={{ color: '#fff' }}>{ev.title}</span>
+              <span className="text-xs flex-shrink-0" style={{ color: '#A0CCC1' }}>{formatHeShortDate(ev.date)}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Price: the discounted total is the headline, the sum of the parts is the anchor */}
+        <div className="flex items-baseline gap-3 mb-4">
+          <span className="text-3xl font-black" style={{ color: '#fff' }}>
+            {b.price <= 0 ? 'חינם' : fmtPrice(b.price)}
+          </span>
+          {b.savings > 0 && (
+            <span className="text-base line-through" style={{ color: 'rgba(160,204,193,0.65)' }}>
+              {fmtPrice(b.original_total)}
+            </span>
+          )}
+          <span className="text-xs mr-auto" style={{ color: '#A0CCC1' }}>לכל הסדרה</span>
+        </div>
+
+        {soldOut ? (
+          <div className="w-full py-3.5 text-center text-sm font-black uppercase tracking-widest select-none"
+            style={{ background: 'rgba(160,204,193,0.12)', color: 'rgba(160,204,193,0.6)', borderRadius: 0 }}>
+            הסדרה אינה זמינה
+          </div>
+        ) : (
+          <button onClick={e => { e.stopPropagation(); onClick(b); }}
+            className="w-full py-3.5 text-base font-black uppercase tracking-widest transition hover:opacity-90 active:scale-95"
+            style={{ background: '#A09850', color: '#152020', borderRadius: 0 }}>
+            להרשמה לסדרה ←
+          </button>
+        )}
+
+        {almostFull && (
+          <p className="text-xs font-bold text-center mt-2" style={{ color: '#A09850' }}>
+            נותרו רק {b.spots_left} מקומות בסדרה!
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Registration for a whole series. Deliberately mirrors EventModal's form so the
+// flow feels identical — the only difference is that one submit books N seats.
+function BundleModal({ bundle: b, onClose, onRegistered }) {
+  const userData = getUserData();
+  const [name, setName] = useState(userData?.name || '');
+  const [phone, setPhone] = useState(userData?.phone || '');
+  const [email, setEmail] = useState(userData?.email || '');
+  const [notes, setNotes] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [registered, setRegistered] = useState(false);
+
+  useEffect(() => {
+    if (!getUserToken()) return;
+    apiFetch('/user-auth/me').then(user => {
+      if (user.name)  setName(user.name);
+      if (user.phone) setPhone(user.phone);
+      if (user.email) setEmail(user.email);
+    }).catch(() => {});
+  }, []);
+
+  const isPaid = (b.price || 0) > 0;
+
+  async function handleRegister(e) {
+    e.preventDefault();
+    setError(''); setSuccess('');
+    if (!name.trim())  return setError('שם הוא שדה חובה');
+    if (!phone.trim()) return setError('טלפון הוא שדה חובה');
+    if (!email.trim()) return setError('אימייל הוא שדה חובה');
+    setLoading(true);
+    try {
+      const data = await apiFetch(`/bundles/${b.id}/register`, {
+        method: 'POST',
+        body: JSON.stringify({ name, phone, email, notes }),
+      });
+      setSuccess(data.message || 'נרשמת בהצלחה לסדרה!');
+      setRegistered(true);
+      onRegistered();
+    } catch (err) {
+      setError(err.message);
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white shadow-2xl w-full max-w-lg fade-in max-h-[90vh] overflow-y-auto"
+        style={{ borderRadius: 0, border: '2px solid #152020' }} onClick={e => e.stopPropagation()}>
+
+        {/* Header — same inverted treatment as the feed card, so the series identity carries over */}
+        <div style={{ background: '#152020' }} className="p-5">
+          <div className="flex justify-between items-start gap-3">
+            <div className="min-w-0">
+              <span className="text-[11px] font-black uppercase tracking-[0.2em]" style={{ color: '#A09850' }}>סדרה</span>
+              <h3 className="text-xl font-black mt-1" style={{ color: '#fff' }}>{b.title}</h3>
+              <p className="text-sm font-bold mt-0.5" style={{ color: '#A09850' }}>סדרה של {b.events_count} מפגשים</p>
+            </div>
+            <button onClick={onClose} className="text-xl flex-shrink-0" style={{ color: '#A0CCC1' }}>✕</button>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {b.description && <p className="text-gray-600 text-sm mb-4 whitespace-pre-wrap">{b.description}</p>}
+
+          {/* Every meeting the seat is reserved in */}
+          <p className="text-xs font-black text-gray-500 mb-2 uppercase tracking-wide">המפגשים בסדרה</p>
+          <div className="mb-4 border border-gray-200">
+            {b.events.map((ev, i) => (
+              <div key={ev.id} className="flex items-start gap-3 p-3"
+                style={{ borderTop: i === 0 ? 'none' : '1px solid #e5e7eb' }}>
+                <span className="text-[11px] font-black w-5 text-center flex-shrink-0 mt-0.5"
+                  style={{ background: '#152020', color: '#A0CCC1' }}>{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-sm text-gray-900">{ev.title}</div>
+                  <div className="text-xs text-gray-500 flex flex-wrap gap-x-3">
+                    <span>{formatHeDate(ev.date)}</span>
+                    {ev.time && <span>{ev.time}{ev.end_time ? ` – ${ev.end_time}` : ''}</span>}
+                    {ev.location && <span>{ev.location}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Price block */}
+          <div className="mb-4 px-4 py-3" style={{ background: '#152020' }}>
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-semibold" style={{ color: '#A0CCC1' }}>מחיר לכל הסדרה</span>
+              <div className="flex items-baseline gap-2">
+                {b.savings > 0 && (
+                  <span className="text-sm line-through" style={{ color: 'rgba(160,204,193,0.6)' }}>{fmtPrice(b.original_total)}</span>
+                )}
+                <span className="font-black text-xl" style={{ color: '#fff' }}>
+                  {b.price <= 0 ? 'חינם' : fmtPrice(b.price)}
+                </span>
+              </div>
+            </div>
+            {b.savings > 0 && (
+              <p className="text-xs font-bold mt-1 text-left" style={{ color: '#A09850' }}>
+                חיסכון של {fmtPrice(b.savings)} לעומת הרשמה בנפרד
+              </p>
+            )}
+          </div>
+
+          {b.sold_out ? (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              {b.blocked_by
+                ? `הסדרה אינה זמינה כרגע — המפגש "${b.blocked_by.title}" אינו פתוח להרשמה.`
+                : 'הסדרה אינה זמינה כרגע.'}
+            </div>
+          ) : (
+            <>
+              {error   && <div className="bg-red-50 text-red-600 p-3 mb-3 text-sm">{error}</div>}
+              {success && <div className="bg-green-50 text-green-700 p-3 mb-3 text-sm font-semibold">{success}</div>}
+
+              {registered ? (
+                isPaid && b.payment_link ? (
+                  <div className="border-2 border-amber-400" style={{ background: '#fffbeb' }}>
+                    <div className="px-4 py-2.5 border-b border-amber-300" style={{ background: '#fef08a' }}>
+                      <span className="text-xs font-black uppercase tracking-wide" style={{ color: '#92400e' }}>נדרש תשלום לאישור המקום</span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-600">סכום לתשלום</span>
+                        <span className="font-black text-lg" style={{ color: '#152020' }}>{fmtPrice(b.price)}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">יש לשלם כדי לאשר את שריון מקומך בכל {b.events_count} המפגשים.</p>
+                      <a href={b.payment_link} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-center w-full py-3 font-black text-sm uppercase tracking-widest transition"
+                        style={{ textDecoration: 'none', background: '#0e7490', color: '#fff', borderRadius: 0 }}>
+                        לתשלום עבור הסדרה
+                      </a>
+                    </div>
+                  </div>
+                ) : isPaid ? (
+                  <p className="text-center text-sm font-semibold py-2" style={{ color: '#92400e' }}>
+                    אנא צרי קשר עם המנהלות להסדרת התשלום
+                  </p>
+                ) : null
+              ) : (
+                <form onSubmit={handleRegister} className="space-y-3">
+                  <h4 className="font-black text-sm uppercase tracking-wide text-gray-500">הרשמה לסדרה</h4>
+                  <input type="text" placeholder="שמך המלא *" value={name} onChange={e => setName(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 focus:outline-none focus:border-primary" dir="rtl" />
+                  <input type="tel" placeholder="טלפון *" value={phone} onChange={e => setPhone(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 focus:outline-none focus:border-primary" dir="ltr" style={{ textAlign: 'right' }} />
+                  <input type="email" placeholder="אימייל *" value={email} onChange={e => setEmail(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-200 focus:outline-none focus:border-primary" dir="ltr" style={{ textAlign: 'right' }} />
+                  <textarea placeholder="הערות (אופציונלי)" value={notes} onChange={e => setNotes(e.target.value)}
+                    rows={2} dir="rtl"
+                    className="w-full px-4 py-2.5 border border-gray-200 focus:outline-none focus:border-primary resize-none" />
+                  <button type="submit" disabled={loading}
+                    className="w-full py-3.5 font-black text-base uppercase tracking-widest transition disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{ background: '#A09850', color: '#152020', borderRadius: 0 }}>
+                    {loading && <div className="spinner" style={{ width: 16, height: 16, borderWidth: 2, borderTopColor: '#152020' }}></div>}
+                    הרשמה לכל {b.events_count} המפגשים
+                  </button>
+                  <p className="text-[11px] text-gray-400 text-center">
+                    ההרשמה משריינת מקום בכל מפגשי הסדרה יחד. אם אחד המפגשים מתמלא — לא תתבצע הרשמה חלקית.
+                  </p>
+                </form>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ────────────────────────────────────────────
 function App() {
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
   const [events, setEvents] = useState([]);
+  const [bundles, setBundles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('feed');
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedBundle, setSelectedBundle] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null); // { day, events }
   const [shareToast, setShareToast] = useState(null);
 
@@ -566,16 +866,30 @@ function App() {
     return y === year && m === month + 1;
   });
 
+  // Bundles are fetched alongside events, and only the still-available ones come
+  // back — which is exactly the set the upsell is allowed to offer.
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/events/public');
-      setEvents(data);
+      const [eventData, bundleData] = await Promise.all([
+        apiFetch('/events/public'),
+        apiFetch('/bundles/public').catch(() => []),   // a series outage must not blank the feed
+      ]);
+      setEvents(eventData);
+      setBundles(bundleData);
     } catch (err) { console.error(err); }
     setLoading(false);
   }, []);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // The series to cross-sell on a given event, or null. Picks the biggest saving
+  // when an event belongs to more than one, and never offers a sold-out series.
+  const upsellFor = useCallback((eventId) => {
+    const candidates = bundles.filter(b => !b.sold_out && b.events.some(e => e.id === eventId));
+    if (!candidates.length) return null;
+    return candidates.sort((a, b) => b.savings - a.savings)[0];
+  }, [bundles]);
 
   function handlePrev() {
     if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1);
@@ -648,10 +962,14 @@ function App() {
         {view === 'feed' ? (
           loading ? (
             <div className="flex justify-center py-20"><div className="spinner"></div></div>
-          ) : upcomingEvents.length === 0 ? (
+          ) : upcomingEvents.length === 0 && bundles.length === 0 ? (
             <div className="text-center py-16 text-gray-400">אין אירועים קרובים.</div>
           ) : (
             <div className="space-y-4">
+              {/* Series first — they're the premium offer and anchor the prices below */}
+              {bundles.map(b => (
+                <BundleFeedCard key={'b' + b.id} bundle={b} onClick={setSelectedBundle} />
+              ))}
               {upcomingEvents.map(ev => (
                 <EventFeedCard key={ev.id} event={ev} onClick={handleEventClick} onShare={handleShare} />
               ))}
@@ -686,7 +1004,14 @@ function App() {
         <EventModal event={selectedEvent}
           onClose={() => setSelectedEvent(null)}
           onRegistered={handleRegistered}
-          onShare={handleShare} />
+          onShare={handleShare}
+          upsellBundle={upsellFor(selectedEvent.id)}
+          onUpgrade={b => { setSelectedEvent(null); setSelectedBundle(b); }} />
+      )}
+      {selectedBundle && (
+        <BundleModal bundle={selectedBundle}
+          onClose={() => setSelectedBundle(null)}
+          onRegistered={handleRegistered} />
       )}
 
       {shareToast && (

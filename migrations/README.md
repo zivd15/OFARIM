@@ -25,6 +25,7 @@ npx wrangler d1 execute ofarim --file=migrations/<file>.sql --remote
 | 0009 | `0009_participant_notes.sql` | `participants.notes` | Optional free-text on registration. |
 | 0010 | `0010_email_content.sql` | `events.confirmation_message`, `events.reminder_message`; `participants.reminder_sent` | Per-event confirmation & 24h reminder email text. |
 | 0011 | `0011_registration_closed.sql` | `events.registration_closed` | FOMO toggle. Was previously applied only to `ofarim-staging`, undocumented — broke prod on 2026-07-31 when the code shipped without it. |
+| 0012 | `0012_bundles.sql` | `bundles`, `bundle_events`, `bundle_registrations`; `participants.bundle_registration_id`; trigger `trg_bundle_reg_no_overbook` | Series sold as one discounted unit. The trigger is what makes a bundle registration all-or-nothing — see the comment in the file. |
 
 ## ⚠️ Every schema change needs a migration file — no exceptions
 

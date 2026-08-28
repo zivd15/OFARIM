@@ -263,7 +263,21 @@ app.post('/internal/cleanup-holds', async c => {
       RETURNING event_id, spots`
   ).bind(ageModifier).all()
 
-  if (!expired.length) return c.json({ expired: 0, events_released: 0 })
+  // A series hold is expired by the sweep above like anything else: its N seats are
+  // ordinary 'pending' participant rows sharing one created_at, so they all lapse
+  // together. This retires the parent row once none of its seats is active, which is
+  // what frees the user to register for that series again. It runs before the
+  // early return below so a parent left behind by an earlier pass still gets retired.
+  const { meta: bundleMeta } = await c.env.DB.prepare(
+    `UPDATE bundle_registrations SET status = 'expired'
+      WHERE status = 'pending'
+        AND NOT EXISTS (
+          SELECT 1 FROM participants p
+           WHERE p.bundle_registration_id = bundle_registrations.id AND p.status != 'expired')`
+  ).run()
+  const bundlesExpired = bundleMeta?.changes ?? 0
+
+  if (!expired.length) return c.json({ expired: 0, events_released: 0, bundles_expired: bundlesExpired })
 
   // Aggregate spot releases per event — must sum spots (not count rows) so that
   // couple holds (spots=2) release 2 seats, not 1.
@@ -288,7 +302,11 @@ app.post('/internal/cleanup-holds', async c => {
   )
   if (reconcileStmts.length) await c.env.DB.batch(reconcileStmts)
 
-  return c.json({ expired: expired.length, events_released: perEvent.size })
+  return c.json({
+    expired: expired.length,
+    events_released: perEvent.size,
+    bundles_expired: bundlesExpired,
+  })
 })
 
 // ── Staging-only QA endpoints (/api/staging/*) ────────────────────────────────
@@ -730,6 +748,115 @@ function withCounts(_db, event) {
   }
 }
 
+// Promotes the first waiter of an event into a real hold, if the freed capacity
+// fits their ticket. Shared by single-event and bundle cancellation so both
+// release seats the same way.
+async function promoteFirstWaiter(db, eventId) {
+  const waiter = await db.prepare(
+    "SELECT id, spots FROM participants WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at LIMIT 1"
+  ).bind(eventId).first()
+  if (!waiter) return null
+
+  const waiterSpots = waiter.spots || 1
+  const ev = await db.prepare('SELECT price, couple_price, max_participants, current_participants FROM events WHERE id = ?').bind(eventId).first()
+  const isFree = (waiterSpots > 1 ? (ev?.couple_price ?? 0) : (ev?.price ?? 0)) <= 0
+  const promoted = await db.prepare(
+    `UPDATE events SET current_participants = current_participants + ?
+      WHERE id = ? AND (max_participants = 0 OR current_participants + ? <= max_participants)
+      RETURNING id`
+  ).bind(waiterSpots, eventId, waiterSpots).first()
+  if (!promoted) return null
+
+  await db.prepare('UPDATE participants SET status = ? WHERE id = ?')
+    .bind(isFree ? 'confirmed' : 'pending', waiter.id).run()
+  return waiter.id
+}
+
+// ── Bundle (series) helpers ───────────────────────────────────────────────────
+
+// Every event of a bundle, in running order, with the capacity fields the
+// availability rules below need.
+const BUNDLE_EVENTS_SQL = `
+  SELECT e.id, e.title, e.date, e.time, e.end_time, e.location, e.color,
+         e.max_participants, e.current_participants, e.price, e.registration_closed
+    FROM bundle_events be
+    JOIN events e ON e.id = be.event_id
+   WHERE be.bundle_id = ?
+   ORDER BY e.date, e.time`
+
+// Why an event blocks its whole series from being sold, or '' if it doesn't.
+// A series is only purchasable while EVERY event in it is still purchasable —
+// the same all-or-nothing rule the registration transaction enforces.
+function bundleEventBlocker(ev, today) {
+  if (ev.registration_closed) return 'closed'
+  if (ev.date < today) return 'past'
+  const spotsLeft = ev.max_participants > 0 ? ev.max_participants - (ev.current_participants ?? 0) : null
+  if (spotsLeft !== null && spotsLeft < 1) return 'full'
+  return ''
+}
+
+// Shapes one bundle + its events into the object the UI consumes: per-event
+// spots_left, the undiscounted total to price the saving against, and the
+// availability of the series as a whole.
+function shapeBundle(bundle, events) {
+  const today = todayInIsrael()
+  const list = events.map(e => ({
+    ...e,
+    spots_left: e.max_participants > 0 ? Math.max(0, e.max_participants - (e.current_participants ?? 0)) : null,
+  }))
+
+  const originalTotal = list.reduce((sum, e) => sum + (e.price || 0), 0)
+  const blocked = list.find(e => bundleEventBlocker(e, today))
+  // Seats available for the series = the scarcest event in it (uncapped events
+  // don't constrain it). null when no event in the series is capped at all.
+  const spotsLeft = list.reduce((min, e) =>
+    e.spots_left === null ? min : (min === null ? e.spots_left : Math.min(min, e.spots_left)), null)
+
+  return {
+    ...bundle,
+    events: list,
+    events_count: list.length,
+    original_total: originalTotal,
+    savings: Math.max(0, originalTotal - (bundle.price || 0)),
+    spots_left: spotsLeft,
+    sold_out: !!blocked || !!bundle.registration_closed || list.length === 0,
+    blocked_by: blocked ? { id: blocked.id, title: blocked.title, reason: bundleEventBlocker(blocked, today) } : null,
+    first_date: list.length ? list[0].date : null,
+    last_date: list.length ? list[list.length - 1].date : null,
+  }
+}
+
+function bundleEmailList(events) {
+  return events.map(e => `<li style="margin-bottom:6px;"><strong>${escapeHtml(e.title)}</strong><br>
+    <span style="color:#555;font-size:13px;">${eventEmailDetails(e)}</span></li>`).join('')
+}
+
+function buildBundleConfirmationEmail(bundle, events, participantName) {
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
+    <h2 style="color:#152020;">שלום ${escapeHtml(participantName)},</h2>
+    <p>ההרשמה שלך לסדרה <strong>${escapeHtml(bundle.title)}</strong> אושרה!</p>
+    <p>המקום שלך שמור בכל ${events.length} המפגשים:</p>
+    <ul style="padding-right:18px;">${bundleEmailList(events)}</ul>
+    ${bundle.confirmation_message ? `<div style="margin:20px 0;padding:16px;background:#f8f9fa;border-right:4px solid #152020;">${escapeHtml(bundle.confirmation_message).replace(/\n/g,'<br>')}</div>` : ''}
+    <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
+  </div>`
+}
+
+function buildBundleAdminNotifyEmail(bundle, events, p, status) {
+  const statusHe = status === 'confirmed' ? 'מאושר' : status === 'pending' ? 'ממתין לתשלום' : status
+  return `<div dir="rtl" style="font-family:Arial,sans-serif;text-align:right;max-width:520px;margin:0 auto;">
+    <h2 style="color:#152020;">הרשמה חדשה לסדרה</h2>
+    <p><strong>סדרה:</strong> ${escapeHtml(bundle.title)} (${events.length} מפגשים)</p>
+    <ul style="padding-right:18px;">${bundleEmailList(events)}</ul>
+    <p><strong>שם הנרשם:</strong> ${escapeHtml(p.name)}</p>
+    <p><strong>סטטוס:</strong> ${statusHe}</p>
+    <p><strong>מחיר הסדרה:</strong> ₪${((bundle.price || 0) / 100).toFixed(2).replace(/\.00$/, '')}</p>
+    ${p.phone ? `<p><strong>טלפון:</strong> ${escapeHtml(p.phone)}</p>` : ''}
+    ${p.email ? `<p><strong>אימייל:</strong> ${escapeHtml(p.email)}</p>` : ''}
+    <p style="color:#999;font-size:12px;margin-top:24px;">עופרים — ofarim.pages.dev</p>
+  </div>`
+}
+
 // ── Public events (/api/events/public, /api/events/my-events, /:id/*) ────────
 
 app.get('/events/public', async c => {
@@ -765,10 +892,15 @@ app.get('/events/public', async c => {
 app.get('/events/my-events', authMiddleware, async c => {
   // Expose THIS user's registration status per event (confirmed/pending/waitlisted).
   // Expired holds are hidden.
+  // bundle_id / bundle_title are non-null when the seat came from a series
+  // purchase, so the dashboard can label it and route cancellation to the series.
   const { results: events } = await c.env.DB.prepare(`
-    SELECT e.*, p.status AS registration_status, p.created_at AS registered_at, p.id AS participant_id
+    SELECT e.*, p.status AS registration_status, p.created_at AS registered_at, p.id AS participant_id,
+           p.bundle_registration_id, b.id AS bundle_id, b.title AS bundle_title
     FROM participants p
     JOIN events e ON e.id = p.event_id
+    LEFT JOIN bundle_registrations br ON br.id = p.bundle_registration_id
+    LEFT JOIN bundles b ON b.id = br.bundle_id
     WHERE p.user_id = ? AND p.status != 'expired'
     ORDER BY e.date DESC, e.time DESC
   `).bind(c.get('user').id).all()
@@ -929,10 +1061,22 @@ app.delete('/events/:id/cancel-registration', authMiddleware, async c => {
   const eventId = c.req.param('id')
 
   const participant = await c.env.DB.prepare(
-    "SELECT id, status, spots FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
+    "SELECT id, status, spots, bundle_registration_id FROM participants WHERE event_id = ? AND user_id = ? AND status != 'expired'"
   ).bind(eventId, userId).first()
 
   if (!participant) return c.json({ error: 'לא נמצאה הרשמה פעילה' }, 404)
+
+  // A seat booked as part of a series can't be dropped on its own — the series
+  // is sold and priced as one unit, so it's cancelled as one unit.
+  if (participant.bundle_registration_id) {
+    const br = await c.env.DB.prepare(
+      'SELECT bundle_id FROM bundle_registrations WHERE id = ?'
+    ).bind(participant.bundle_registration_id).first()
+    return c.json({
+      error: 'הרשמה זו היא חלק מסדרה. ניתן לבטל את הסדרה כולה, לא מפגש בודד.',
+      bundle_id: br?.bundle_id ?? null,
+    }, 409)
+  }
 
   const canceledSpots = participant.spots || 1
 
@@ -945,24 +1089,7 @@ app.delete('/events/:id/cancel-registration', authMiddleware, async c => {
     ).bind(canceledSpots, eventId).run()
 
     // Promote first waiter whose spots fit within the newly freed capacity.
-    const waiter = await c.env.DB.prepare(
-      "SELECT id, spots FROM participants WHERE event_id = ? AND status = 'waitlisted' ORDER BY created_at LIMIT 1"
-    ).bind(eventId).first()
-
-    if (waiter) {
-      const waiterSpots = waiter.spots || 1
-      const ev = await c.env.DB.prepare('SELECT price, couple_price, max_participants, current_participants FROM events WHERE id = ?').bind(eventId).first()
-      const isFree = (waiterSpots > 1 ? (ev?.couple_price ?? 0) : (ev?.price ?? 0)) <= 0
-      const promoted = await c.env.DB.prepare(
-        `UPDATE events SET current_participants = current_participants + ?
-          WHERE id = ? AND (max_participants = 0 OR current_participants + ? <= max_participants)
-          RETURNING id`
-      ).bind(waiterSpots, eventId, waiterSpots).first()
-      if (promoted) {
-        await c.env.DB.prepare("UPDATE participants SET status = ? WHERE id = ?")
-          .bind(isFree ? 'confirmed' : 'pending', waiter.id).run()
-      }
-    }
+    await promoteFirstWaiter(c.env.DB, eventId)
   }
 
   return c.json({ message: 'ההרשמה בוטלה בהצלחה' })
@@ -1105,6 +1232,386 @@ app.delete('/events/:id/participants/:pid', adminMiddleware, async c => {
   if (!participant) return c.json({ error: 'Participant not found' }, 404)
   await c.env.DB.prepare('DELETE FROM participants WHERE id = ?').bind(c.req.param('pid')).run()
   return c.json({ message: 'Participant removed' })
+})
+
+// ── Bundles / Series (/api/bundles) ───────────────────────────────────────────
+// A bundle groups several existing events and sells them as one "סדרה" at a
+// single discounted total. Registering holds a seat in EVERY event at once, in
+// one transaction — all of them or none (see /bundles/:id/register).
+//
+// NOTE: '/bundles/public' MUST stay registered before '/bundles/:id', or Hono
+// would match the literal path against the admin-only :id route.
+
+app.get('/bundles/public', async c => {
+  const { results: bundles } = await c.env.DB.prepare(
+    'SELECT * FROM bundles ORDER BY created_at DESC'
+  ).all()
+  if (!bundles.length) return c.json([])
+
+  const today = todayInIsrael()
+  const shaped = []
+  for (const b of bundles) {
+    const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(b.id).all()
+    if (!events.length) continue                       // empty series — nothing to sell
+    const bundle = shapeBundle(b, events)
+    // Hide a series only once it is entirely in the past. A partly-past one stays
+    // visible (as sold out) so a shared link doesn't dead-end.
+    if (bundle.last_date && bundle.last_date < today) continue
+    shaped.push(bundle)
+  }
+  return c.json(shaped)
+})
+
+app.post('/bundles/:id/register', optionalAuthMiddleware, async c => {
+  // Anti-IDOR: same rule as single-event registration — only profile fields are
+  // read from the body; ownership comes from the JWT alone.
+  const { name, phone, email, notes } = await c.req.json()
+  if (!name?.trim()) return c.json({ error: 'Name is required' }, 400)
+
+  const bundleId = c.req.param('id')
+  const bundle = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(bundleId).first()
+  if (!bundle) return c.json({ error: 'Bundle not found' }, 404)
+  if (bundle.registration_closed) return c.json({ error: 'ההרשמה לסדרה זו סגורה.' }, 400)
+
+  const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(bundleId).all()
+  if (!events.length) return c.json({ error: 'לסדרה זו לא משויכים מפגשים.' }, 400)
+
+  // Pre-flight availability check. The transaction below is what actually
+  // guarantees all-or-nothing under concurrency; this pass exists only to return
+  // a precise Hebrew reason instead of a bare rollback.
+  const today = todayInIsrael()
+  const blocked = events.find(e => bundleEventBlocker(e, today))
+  if (blocked) {
+    const reason = bundleEventBlocker(blocked, today)
+    const why = reason === 'full' ? 'מלא' : reason === 'past' ? 'כבר עבר' : 'סגור להרשמה'
+    return c.json({ error: `לא ניתן להירשם לסדרה — המפגש "${blocked.title}" ${why}.`, blocked_event_id: blocked.id }, 409)
+  }
+
+  const userId = c.get('user')?.id ?? null
+
+  // Duplicate guards. An 'expired' hold never blocks a retry, matching the
+  // single-event rule, so a lapsed payment window can be re-attempted.
+  if (userId) {
+    const dupBundle = await c.env.DB.prepare(
+      "SELECT id FROM bundle_registrations WHERE bundle_id = ? AND user_id = ? AND status != 'expired'"
+    ).bind(bundleId, userId).first()
+    if (dupBundle) return c.json({ error: 'את כבר רשומה לסדרה זו.' }, 409)
+
+    // A pre-existing single-event registration would violate
+    // uniq_participants_user_event_active and abort the batch — say so plainly.
+    const dupEvent = await c.env.DB.prepare(
+      `SELECT e.title FROM participants p
+         JOIN events e ON e.id = p.event_id
+        WHERE p.user_id = ? AND p.status != 'expired'
+          AND p.event_id IN (SELECT event_id FROM bundle_events WHERE bundle_id = ?)
+        LIMIT 1`
+    ).bind(userId, bundleId).first()
+    if (dupEvent) {
+      return c.json({ error: `את כבר רשומה למפגש "${dupEvent.title}" מתוך הסדרה. לשדרוג לסדרה המלאה יש לפנות אלינו.` }, 409)
+    }
+  } else if (phone) {
+    const dup = await c.env.DB.prepare(
+      "SELECT id FROM bundle_registrations WHERE bundle_id = ? AND name = ? AND phone = ? AND status != 'expired'"
+    ).bind(bundleId, name.trim(), phone.trim()).first()
+    if (dup) return c.json({ error: 'את כבר רשומה לסדרה זו.' }, 409)
+  }
+
+  const price = bundle.price ?? 0
+  const isFree = price <= 0
+  // Free series are confirmed on the spot; a paid one gets the same 12h pending
+  // hold as a paid event, swept by /internal/cleanup-holds.
+  const status = isFree ? 'confirmed' : 'pending'
+  // The N participant rows are inserted in the SAME batch as their parent row and
+  // so cannot read its RETURNING id — they look it up by this token instead.
+  const token = crypto.randomUUID()
+
+  const trimmed = { name: name.trim(), phone: phone?.trim() || '', email: email?.trim() || '', notes: notes?.trim() || null }
+
+  // ── Atomic all-or-nothing seat hold across the whole series ─────────────────
+  // One D1 batch = one SQLite transaction. Statement 1 takes a seat in every
+  // event unconditionally; statement 2 trips trg_bundle_reg_no_overbook (see
+  // migrations/0012_bundles.sql) if that pushed any capped event past its cap,
+  // which fails the batch and rolls statement 1 back with it. There is no
+  // interleaving window: a concurrent registration either commits fully before
+  // this one starts, or sees the seats this one took.
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        `UPDATE events SET current_participants = current_participants + 1
+          WHERE id IN (SELECT event_id FROM bundle_events WHERE bundle_id = ?)`
+      ).bind(bundleId),
+      c.env.DB.prepare(
+        `INSERT INTO bundle_registrations (bundle_id, user_id, token, name, phone, email, notes, price, status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+      ).bind(bundleId, userId, token, trimmed.name, trimmed.phone, trimmed.email, trimmed.notes, price, status),
+      c.env.DB.prepare(
+        `INSERT INTO participants (event_id, name, phone, email, user_id, status, ticket_type, spots, notes, bundle_registration_id, created_at)
+         SELECT be.event_id, ?, ?, ?, ?, ?, 'single', 1, ?, (SELECT id FROM bundle_registrations WHERE token = ?), datetime('now')
+           FROM bundle_events be
+          WHERE be.bundle_id = ?`
+      ).bind(trimmed.name, trimmed.phone, trimmed.email, userId, status, trimmed.notes, token, bundleId),
+    ])
+  } catch (err) {
+    // Re-derive every counter this batch touched from the ground truth (SUM of
+    // spots on active holds). Idempotent, so it lands on the right number whether
+    // the rollback already undid statement 1 or — belt and braces — did not.
+    await c.env.DB.prepare(
+      `UPDATE events SET current_participants = COALESCE(
+         (SELECT SUM(spots) FROM participants WHERE event_id = events.id AND status IN ('confirmed','pending')), 0)
+        WHERE id IN (SELECT event_id FROM bundle_events WHERE bundle_id = ?)`
+    ).bind(bundleId).run().catch(() => {})
+
+    const msg = err?.message || ''
+    if (msg.includes('BUNDLE_EVENT_FULL')) {
+      return c.json({ error: 'אחד המפגשים בסדרה התמלא הרגע. ההרשמה בוטלה במלואה — לא נרשמת לאף מפגש.' }, 409)
+    }
+    if (msg.includes('UNIQUE constraint failed')) {
+      return c.json({ error: 'את כבר רשומה לסדרה זו או לאחד המפגשים שבה.' }, 409)
+    }
+    throw err
+  }
+
+  // Best-effort mail from here on — a delivery failure must never undo a booking.
+  try {
+    await sendBrevoEmail(c.env, {
+      to: 'ofarim.grow@gmail.com',
+      name: 'OFARIM',
+      subject: `הרשמה חדשה לסדרה — ${bundle.title}`,
+      htmlContent: buildBundleAdminNotifyEmail(bundle, events, trimmed, status),
+    })
+  } catch (e) { console.error('[bundle admin-notify] failed', e) }
+
+  if (isFree) {
+    if (trimmed.email && bundle.confirmation_message) {
+      await sendBrevoEmail(c.env, {
+        to: trimmed.email,
+        name: trimmed.name,
+        subject: `אישור הרשמה לסדרה — ${bundle.title}`,
+        htmlContent: buildBundleConfirmationEmail(bundle, events, trimmed.name),
+      }).catch(() => {})
+    }
+    return c.json({ status: 'confirmed', events_count: events.length, message: `נרשמת בהצלחה לכל ${events.length} המפגשים! המקום שלך מאושר.` }, 200)
+  }
+  return c.json({
+    status: 'pending',
+    events_count: events.length,
+    payment_link: bundle.payment_link || null,
+    message: `המקום שלך שמור בכל ${events.length} המפגשים. יש לך 12 שעות לסיים את התשלום.`,
+  }, 200)
+})
+
+// Cancel a whole series registration. Single events booked as part of a series
+// cannot be cancelled one by one (see /events/:id/cancel-registration).
+app.delete('/bundles/:id/cancel-registration', authMiddleware, async c => {
+  const userId = c.get('user').id
+  const bundleId = c.req.param('id')
+
+  const reg = await c.env.DB.prepare(
+    "SELECT id FROM bundle_registrations WHERE bundle_id = ? AND user_id = ? AND status != 'expired'"
+  ).bind(bundleId, userId).first()
+  if (!reg) return c.json({ error: 'לא נמצאה הרשמה פעילה לסדרה' }, 404)
+
+  const { results: rows } = await c.env.DB.prepare(
+    'SELECT event_id, spots, status FROM participants WHERE bundle_registration_id = ?'
+  ).bind(reg.id).all()
+
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM participants WHERE bundle_registration_id = ?').bind(reg.id),
+    c.env.DB.prepare('DELETE FROM bundle_registrations WHERE id = ?').bind(reg.id),
+  ])
+
+  // Release the held seats, then offer each freed seat to that event's waitlist.
+  for (const r of rows) {
+    if (r.status !== 'confirmed' && r.status !== 'pending') continue
+    await c.env.DB.prepare(
+      'UPDATE events SET current_participants = MAX(0, current_participants - ?) WHERE id = ?'
+    ).bind(r.spots || 1, r.event_id).run()
+    await promoteFirstWaiter(c.env.DB, r.event_id)
+  }
+
+  return c.json({ message: 'ההרשמה לסדרה בוטלה בהצלחה', events_released: rows.length })
+})
+
+// Confirm a pending series once its single payment clears. Auth: admin JWT OR
+// webhook secret — the same gate as the single-event equivalent. Seats were
+// already counted at hold time, so confirming changes no counter.
+app.post('/bundles/:id/confirm-payment', async c => {
+  const auth = await isAdminOrWebhook(c)
+  if (!auth.ok) return c.json({ error: 'Forbidden' }, 403)
+
+  const body = await c.req.json().catch(() => ({}))
+  const registrationId = body.registration_id
+  if (!registrationId) return c.json({ error: 'registration_id is required' }, 400)
+
+  const bundleId = c.req.param('id')
+  const updated = await c.env.DB.prepare(
+    `UPDATE bundle_registrations SET status = 'confirmed'
+      WHERE id = ? AND bundle_id = ? AND status = 'pending'
+      RETURNING id, name, email`
+  ).bind(registrationId, bundleId).first()
+  if (!updated) return c.json({ error: 'Hold expired or invalid' }, 400)
+
+  // Flip every seat of the series in one statement.
+  await c.env.DB.prepare(
+    "UPDATE participants SET status = 'confirmed' WHERE bundle_registration_id = ? AND status = 'pending'"
+  ).bind(updated.id).run()
+
+  const bundle = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(bundleId).first()
+  const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(bundleId).all()
+
+  if (updated.email && bundle?.confirmation_message) {
+    await sendBrevoEmail(c.env, {
+      to: updated.email,
+      name: updated.name,
+      subject: `אישור הרשמה לסדרה — ${bundle.title}`,
+      htmlContent: buildBundleConfirmationEmail(bundle, events, updated.name),
+    }).catch(() => {})
+  }
+
+  // Any event of the series already inside the 24h reminder window has had its
+  // cron sweep pass — send those reminders now, exactly as the single-event path does.
+  for (const ev of events) {
+    if (hoursUntilEventStart(ev.date, ev.time) > 24) continue
+    const p = await c.env.DB.prepare(
+      "SELECT id, name, email FROM participants WHERE bundle_registration_id = ? AND event_id = ? AND status = 'confirmed' AND reminder_sent = 0 AND email != ''"
+    ).bind(updated.id, ev.id).first()
+    if (!p) continue
+    const full = await c.env.DB.prepare(
+      'SELECT title, date, time, end_time, location, reminder_message FROM events WHERE id = ?'
+    ).bind(ev.id).first()
+    if (full) await sendReminderNow(c.env, full, p)
+  }
+
+  return c.json({ message: 'Payment confirmed', registration_id: updated.id, events_confirmed: events.length }, 200)
+})
+
+// ── Admin bundles ─────────────────────────────────────────────────────────────
+
+app.get('/bundles', adminMiddleware, async c => {
+  const { results: bundles } = await c.env.DB.prepare('SELECT * FROM bundles ORDER BY created_at DESC').all()
+  const enriched = []
+  for (const b of bundles) {
+    const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(b.id).all()
+    const counts = await c.env.DB.prepare(
+      `SELECT COALESCE(SUM(status = 'confirmed'), 0) AS confirmed_count,
+              COALESCE(SUM(status = 'pending'),   0) AS pending_count
+         FROM bundle_registrations WHERE bundle_id = ?`
+    ).bind(b.id).first()
+    enriched.push({ ...shapeBundle(b, events), ...counts })
+  }
+  return c.json(enriched)
+})
+
+app.get('/bundles/:id', adminMiddleware, async c => {
+  const bundle = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(c.req.param('id')).first()
+  if (!bundle) return c.json({ error: 'Bundle not found' }, 404)
+  const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(bundle.id).all()
+  const { results: registrations } = await c.env.DB.prepare(
+    "SELECT id, name, phone, email, notes, price, status, created_at FROM bundle_registrations WHERE bundle_id = ? AND status != 'expired' ORDER BY created_at"
+  ).bind(bundle.id).all()
+  return c.json({ ...shapeBundle(bundle, events), registrations })
+})
+
+// Validates the event_ids an admin picked and returns them de-duplicated and in
+// running order, or an error string. A series needs at least two events.
+async function resolveBundleEventIds(db, rawIds) {
+  const ids = [...new Set((Array.isArray(rawIds) ? rawIds : []).map(Number).filter(Number.isInteger))]
+  if (ids.length < 2) return { error: 'יש לבחור לפחות שני מפגשים לסדרה' }
+  const { results } = await db.prepare(
+    `SELECT id FROM events WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY date, time`
+  ).bind(...ids).all()
+  if (results.length !== ids.length) return { error: 'אחד המפגשים שנבחרו לא קיים' }
+  return { ids: results.map(r => r.id) }
+}
+
+app.post('/bundles', adminMiddleware, async c => {
+  const { title, description, price, color, payment_link, confirmation_message, registration_closed, event_ids } = await c.req.json()
+  if (!title?.trim()) return c.json({ error: 'שם הסדרה הוא שדה חובה' }, 400)
+  if (title.length > 255) return c.json({ error: 'Title must be less than 255 characters' }, 400)
+
+  const resolved = await resolveBundleEventIds(c.env.DB, event_ids)
+  if (resolved.error) return c.json({ error: resolved.error }, 400)
+
+  const created = await c.env.DB.prepare(
+    `INSERT INTO bundles (title, description, price, color, payment_link, confirmation_message, registration_closed)
+     VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`
+  ).bind(
+    title.trim(), description || '', ilsToAgorot(price), color || '#A09850',
+    payment_link?.trim() || null, confirmation_message?.trim() || null, registration_closed ? 1 : 0
+  ).first()
+
+  await c.env.DB.batch(resolved.ids.map((eid, i) =>
+    c.env.DB.prepare('INSERT INTO bundle_events (bundle_id, event_id, position) VALUES (?, ?, ?)').bind(created.id, eid, i)
+  ))
+
+  const bundle = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(created.id).first()
+  const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(created.id).all()
+  return c.json(shapeBundle(bundle, events), 201)
+})
+
+app.put('/bundles/:id', adminMiddleware, async c => {
+  const id = c.req.param('id')
+  const existing = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(id).first()
+  if (!existing) return c.json({ error: 'Bundle not found' }, 404)
+
+  const { title, description, price, color, payment_link, confirmation_message, registration_closed, event_ids } = await c.req.json()
+
+  // Changing the line-up while people hold seats would strand those seats in
+  // events that are no longer part of the series, so it is refused outright.
+  if (event_ids !== undefined) {
+    const active = await c.env.DB.prepare(
+      "SELECT COUNT(*) AS n FROM bundle_registrations WHERE bundle_id = ? AND status != 'expired'"
+    ).bind(id).first()
+    if (active.n > 0) return c.json({ error: 'לא ניתן לשנות את רשימת המפגשים בסדרה שכבר יש לה נרשמות. ניתן לעדכן מחיר, טקסטים ולסגור הרשמה.' }, 409)
+
+    const resolved = await resolveBundleEventIds(c.env.DB, event_ids)
+    if (resolved.error) return c.json({ error: resolved.error }, 400)
+    await c.env.DB.batch([
+      c.env.DB.prepare('DELETE FROM bundle_events WHERE bundle_id = ?').bind(id),
+      ...resolved.ids.map((eid, i) =>
+        c.env.DB.prepare('INSERT INTO bundle_events (bundle_id, event_id, position) VALUES (?, ?, ?)').bind(id, eid, i)),
+    ])
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE bundles SET title=?, description=?, price=?, color=?, payment_link=?, confirmation_message=?, registration_closed=? WHERE id=?'
+  ).bind(
+    title !== undefined ? title.trim() : existing.title,
+    description !== undefined ? description : existing.description,
+    price !== undefined ? ilsToAgorot(price) : existing.price,
+    color || existing.color,
+    payment_link !== undefined ? (payment_link?.trim() || null) : existing.payment_link,
+    confirmation_message !== undefined ? (confirmation_message?.trim() || null) : existing.confirmation_message,
+    registration_closed !== undefined ? (registration_closed ? 1 : 0) : existing.registration_closed,
+    id
+  ).run()
+
+  const bundle = await c.env.DB.prepare('SELECT * FROM bundles WHERE id = ?').bind(id).first()
+  const { results: events } = await c.env.DB.prepare(BUNDLE_EVENTS_SQL).bind(id).all()
+  return c.json(shapeBundle(bundle, events))
+})
+
+app.delete('/bundles/:id', adminMiddleware, async c => {
+  const id = c.req.param('id')
+  const existing = await c.env.DB.prepare('SELECT id FROM bundles WHERE id = ?').bind(id).first()
+  if (!existing) return c.json({ error: 'Bundle not found' }, 404)
+
+  // Deleting cascades the registrations away and would leave their per-event
+  // participant rows orphaned mid-series, so require them to be cleared first.
+  const active = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM bundle_registrations WHERE bundle_id = ? AND status != 'expired'"
+  ).bind(id).first()
+  if (active.n > 0) return c.json({ error: `לסדרה יש ${active.n} נרשמות פעילות. יש לבטל אותן לפני מחיקה.` }, 409)
+
+  // The child rows are cleared explicitly rather than relying on ON DELETE CASCADE,
+  // so the line-up can't be left orphaned if foreign keys are ever off. The events
+  // themselves are untouched — only their membership in this series goes away.
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM bundle_events WHERE bundle_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM bundle_registrations WHERE bundle_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM bundles WHERE id = ?').bind(id),
+  ])
+  return c.json({ message: 'Bundle deleted successfully' })
 })
 
 // ── 24h Reminder Cron (/api/internal/send-reminders) ─────────────────────────
