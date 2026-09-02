@@ -527,8 +527,9 @@ async function shareEvent(eventTitle, eventDate, eventId, onCopied) {
 
 // ─── Event Feed Card ─────────────────────────────────────
 function EventFeedCard({ event: ev, onClick, onShare }) {
+  // Availability is deliberately binary — open or full. The exact remaining count
+  // is never shown to the public.
   const isFull = !!ev.registration_closed || (ev.spots_left !== null && ev.spots_left <= 0);
-  const isAlmostFull = !isFull && ev.spots_left !== null && ev.spots_left > 0 && ev.spots_left <= 5;
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition cursor-pointer"
          onClick={() => onClick(ev)}>
@@ -556,11 +557,6 @@ function EventFeedCard({ event: ev, onClick, onShare }) {
             style={{ background: '#4E7772', color: '#fff' }}>
             להרשמה ←
           </button>
-        )}
-        {isAlmostFull && (
-          <p className="text-xs text-amber-600 font-semibold text-center mt-2">
-            נותרו רק {ev.spots_left} מקומות!
-          </p>
         )}
         {/* Share — secondary ghost action */}
         <button
@@ -595,8 +591,8 @@ function formatHeShortDate(dateStr) {
 // series reads as a different, higher-tier product than the white event cards
 // around it, without introducing any colour outside the existing palette.
 function BundleFeedCard({ bundle: b, onClick }) {
+  // Binary availability only — the exact number of remaining seats is never shown.
   const soldOut = !!b.sold_out;
-  const almostFull = !soldOut && b.spots_left !== null && b.spots_left > 0 && b.spots_left <= 5;
   return (
     <div onClick={() => !soldOut && onClick(b)}
       className={`overflow-hidden transition ${soldOut ? 'opacity-60' : 'cursor-pointer hover:shadow-xl'}`}
@@ -651,11 +647,6 @@ function BundleFeedCard({ bundle: b, onClick }) {
           </button>
         )}
 
-        {almostFull && (
-          <p className="text-xs font-bold text-center mt-2" style={{ color: '#A09850' }}>
-            נותרו רק {b.spots_left} מקומות בסדרה!
-          </p>
-        )}
       </div>
     </div>
   );
